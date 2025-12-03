@@ -1,0 +1,42 @@
+# ----------------------------------------------------------------------
+# General Ignore Rules
+# ----------------------------------------------------------------------
+# Byte-compiled / optimized / setuptools files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary files created by the operating system
+.DS_Store
+
+# ----------------------------------------------------------------------
+# Python Virtual Environments
+# ----------------------------------------------------------------------
+# Virtual environment directories
+venv/
+env/
+.venv/
+*/venv/
+*/env/
+*/.venv/
+
+# ----------------------------------------------------------------------
+# IDE & Editor Files (Visual Studio Code, etc.)
+# ----------------------------------------------------------------------
+# VSCode settings directory
+.vscode/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# History files
+.python_history
+.bash_history
+
+# Tkinter/GUI files (often temporary logs or settings)
+# Add specific temporary database files here if applicable (e.g., SQLite files)
+*.db
+*.sqlite3
+
+# Logs and databases
+*.log
