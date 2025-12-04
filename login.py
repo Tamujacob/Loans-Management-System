@@ -1,48 +1,125 @@
 from tkinter import *
 from tkinter import messagebox
-import subprocess  # Import subprocess to run dashboard.py
+import database
+import subprocess
+import bcrypt # Needed to verify hashed passwords
 
-# Dummy credentials
-USERNAME = "admin"
-PASSWORD = "password123"
+# --- Navigation Function ---
+def open_create_account(current_window):
+    """Closes the current window and opens the create_account.py script."""
+    current_window.destroy()
+    subprocess.Popen(["python", "create account.py"])
+
+
+# --- Main Login Logic (Updated for MongoDB) ---
+def verify_login(username, password, window):
+    """
+    Checks credentials against the MongoDB 'users' collection.
+    """
+    if database.db is None:
+        messagebox.showerror("Connection Error", "Database not connected. Cannot log in.")
+        return False
+
+    # 1. Find the user by username
+    user_doc = database.db['users'].find_one({"username": username})
+
+    if user_doc:
+        # 2. User found: Verify the hashed password
+        stored_hash = user_doc['password_hash'].encode('utf-8')
+        input_password_bytes = password.encode('utf-8')
+
+        # bcrypt.checkpw compares the raw password to the stored hash
+        if bcrypt.checkpw(input_password_bytes, stored_hash):
+            return True # Login successful
+        else:
+            return False # Password mismatch
+    else:
+        # 3. User not found
+        return False
 
 def login():
+    """Handles button press and attempts to log in."""
     user = user_entry.get()
     passw = pass_entry.get()
 
-    if user == USERNAME and passw == PASSWORD:
-        messagebox.showinfo("Login Successful", "Welcome to Loan Management System!")
+    # --- Replaced Dummy Check with MongoDB Check ---
+    if verify_login(user, passw, window):
+        messagebox.showinfo("Login Successful", f"Welcome, {user}!")
         window.destroy()  # Close login window
         subprocess.Popen(["python", "dashboard.py"])  # Open dashboard
     else:
         messagebox.showerror("Login Failed", "Invalid Username or Password!")
 
+# ----------------------------------------------------
+
 # Create main window
 window = Tk()
-window.title("Login Page")
-window.geometry("350x250")
-window.configure(bg="#f0f0f0")
+window.title("Loan Management System - Login")
+window.geometry("500x400") # Increased Size
+window.configure(bg="#2c3e50") # Dark background for modern look
 
-# Center Frame
-frame = Frame(window, bg="white", padx=20, pady=20, relief="ridge", bd=5)
+# Check DB connection status on launch
+if database.db is None:
+    messagebox.showwarning("DB Warning", "Could not connect to MongoDB. Login function will fail.")
+
+# Center Frame (Enhanced Styling)
+frame = Frame(window, bg="white", padx=40, pady=40, relief="raised", bd=5)
 frame.place(relx=0.5, rely=0.5, anchor=CENTER)
 
-# Title Label
-Label(frame, text="User Login", font=("Arial", 14, "bold"), bg="white").grid(row=0, column=0, columnspan=2, pady=10)
+# Title Label (Enhanced)
+Label(
+    frame, 
+    text="👤 System Login", 
+    font=("Arial", 20, "bold"), 
+    bg="white", 
+    fg="#34495e"
+).grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
 # Username Label & Entry
-Label(frame, text="Username:", font=("Arial", 10), bg="white").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-user_entry = Entry(frame, font=("Arial", 10))
-user_entry.grid(row=1, column=1, padx=5, pady=5)
+Label(
+    frame, 
+    text="Username:", 
+    font=("Arial", 12), 
+    bg="white"
+).grid(row=1, column=0, sticky="w", padx=5, pady=10)
+user_entry = Entry(frame, font=("Arial", 12), width=25, bd=1, relief=SUNKEN)
+user_entry.grid(row=1, column=1, padx=5, pady=10, ipady=3)
 
 # Password Label & Entry
-Label(frame, text="Password:", font=("Arial", 10), bg="white").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-pass_entry = Entry(frame, font=("Arial", 10), show="*")
-pass_entry.grid(row=2, column=1, padx=5, pady=5)
+Label(
+    frame, 
+    text="Password:", 
+    font=("Arial", 12), 
+    bg="white"
+).grid(row=2, column=0, sticky="w", padx=5, pady=10)
+pass_entry = Entry(frame, font=("Arial", 12), width=25, show="*", bd=1, relief=SUNKEN)
+pass_entry.grid(row=2, column=1, padx=5, pady=10, ipady=3)
 
 # Login Button
-log_button = Button(frame, text="Login", font=("Arial", 10, "bold"), bg="#007BFF", fg="white", width=15, command=login)
-log_button.grid(row=3, column=0, columnspan=2, pady=10)
+log_button = Button(
+    frame, 
+    text="LOGIN", 
+    font=("Arial", 12, "bold"), 
+    bg="#2980b9", # Blue color
+    fg="white", 
+    activebackground="#3498db",
+    width=20, 
+    command=login
+)
+log_button.grid(row=3, column=0, columnspan=2, pady=15)
+
+# Create Account Button/Link
+create_account_btn = Button(
+    frame, 
+    text="Create New Account", 
+    font=("Arial", 10), 
+    bg="white", 
+    fg="#2c3e50",
+    bd=0, # Makes it look like a link
+    cursor="hand2",
+    command=lambda: open_create_account(window)
+)
+create_account_btn.grid(row=4, column=0, columnspan=2)
 
 # Allow pressing "Enter" to log in
 window.bind('<Return>', lambda event: login())
