@@ -21,8 +21,9 @@ This system is designed to streamline the entire loan management process with th
 | :--- | :--- | :--- |
 | **Python 3.x** | Core programming language. | Implemented |
 | **Tkinter** | Python's standard GUI framework for the desktop interface. | Implemented |
-| **Database** | For persistent storage of loan and customer records. | **To be Implemented** |
-| **SQLite/MySQL/PostgreSQL** | *The specific database choice is pending.* | **To be Implemented** |
+| **Database** | For persistent storage of loan and customer records. |
+| **Database** | MongoDB (NoSQL) | **Implemented and Connected** |
+| **Driver** | PyMongo / Bcrypt (for security) | **Implemented** ||
 | **Pandas** | Data manipulation and analysis (if used). | Planned/Optional |
 | **Matplotlib/Seaborn** | Generating charts and graphs for visual reporting (if used). | Planned/Optional |
 
