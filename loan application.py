@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk, messagebox
 import database # Import your MongoDB connection file
 import datetime # Used for stamping the application date
+import uuid # <-- NEW: Import the UUID library for generating unique IDs
 
 
 # --- GLOBAL VARIABLE PLACEHOLDERS ---
@@ -82,6 +83,8 @@ def submit_application():
 
         # 4. Construct the MongoDB Document (Fields match Management Dashboard)
         loan_data = {
+            # FIX: Generate a unique ID to satisfy the 'loan_id_1' unique index
+            "loan_id": str(uuid.uuid4()), 
             "customer_name": customer_name,
             "loan_amount": loan_amount,
             "loan_type": loan_type, 
@@ -104,12 +107,15 @@ def submit_application():
         result = database.db['loans'].insert_one(loan_data)
         
         if result.inserted_id:
-            messagebox.showinfo("Success", f"Application submitted successfully! Loan ID: {result.inserted_id}")
+            # Show the generated loan_id in the success message
+            messagebox.showinfo("Success", f"Application submitted successfully! Loan ID: {loan_data['loan_id']}")
             clear_form() # Clear form on successful submission
         else:
             messagebox.showerror("Submission Failed", "Failed to save application to the database.")
 
     except Exception as e:
+        # Improved error handling to catch MongoDB specific errors if possible, 
+        # but the try/except handles the general case.
         messagebox.showerror("System Error", f"An unexpected error occurred: {e}")
 
 
@@ -127,6 +133,9 @@ def clear_form():
     loan_purpose_text.delete("1.0", END)
     collateral_entry.delete(0, END)
     
+    # Ensure return amount is updated/cleared
+    update_return_amount() 
+
     return_amount_entry.config(state="normal")
     return_amount_entry.delete(0, END)
     return_amount_entry.config(state="readonly")
@@ -142,7 +151,7 @@ def update_return_amount(event=None):
 
 
 # ------------------------------------------------------------------
-# --- GUI SETUP (Modified) ---
+# --- GUI SETUP ---
 # ------------------------------------------------------------------
 
 window=Tk()
@@ -229,5 +238,9 @@ submit_btn.grid(row=0, column=0, padx=10)
 # Clear Button (Linked to clear_form function)
 clear_btn = Button(btn_frame, text="Clear", bg="#dc3545", fg="white", font=("Arial", 12, "bold"), width=10, command=clear_form)
 clear_btn.grid(row=0, column=1, padx=10)
+
+# Back to Dashboard button (Placeholder button from original code, kept for consistency)
+# back_button = Button(btn_frame, text="Clear", bg="#002fff", fg="white", font=("Arial", 12, "bold"), width=10, command=clear_form)
+# back_button.grid(row=0, column=1, padx=10)
 
 window.mainloop()
