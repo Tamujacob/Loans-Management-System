@@ -4,9 +4,10 @@ import database # Import your MongoDB connection file
 import datetime # Used for stamping the application date
 
 
-# --- GLOBAL VARIABLE FOR REPAYMENT METHOD ---
-# We need a StringVar to correctly handle the Radiobuttons
-repayment_method_var = StringVar(value="Monthly") # Set a default value
+# --- GLOBAL VARIABLE PLACEHOLDERS ---
+# We use placeholders (None) here, but initialize the variables after Tk() is created.
+repayment_method_var = None
+terms_var = None
 
 
 # --- HELPER FUNCTION: Calculate Estimated Return Amount (Simple Interest Example) ---
@@ -26,7 +27,7 @@ def calculate_return_amount():
             months = int(duration_text.split()[0])
             years = months / 12.0
         else:
-            return 0 # Default if combo box is empty
+            return 0
             
         # 2. Define a simple annual interest rate (e.g., 12% or 0.12)
         ANNUAL_INTEREST_RATE = 0.12 
@@ -79,11 +80,11 @@ def submit_application():
         # 3. Calculate Final Amounts
         total_return_amount = calculate_return_amount()
 
-        # 4. Construct the MongoDB Document
+        # 4. Construct the MongoDB Document (Fields match Management Dashboard)
         loan_data = {
             "customer_name": customer_name,
             "loan_amount": loan_amount,
-            "loan_type": loan_type,
+            "loan_type": loan_type, 
             "duration": repayment_duration,
             "repayment_method": repayment_method,
             "purpose": loan_purpose,
@@ -91,7 +92,8 @@ def submit_application():
             "return_amount": total_return_amount,
             "interest_rate": 0.12, # Stored for record
             "application_date": datetime.datetime.now(),
-            "status": "Pending"
+            "status": "Pending",
+            "next_payment": "To be set upon approval" 
         }
         
         # 5. Save to MongoDB
@@ -117,10 +119,14 @@ def clear_form():
     amount_entry.delete(0, END)
     type_combo.set('')
     duration_combo.set('')
+    
+    # Safely set the values of the control variables
     repayment_method_var.set("Monthly")
+    terms_var.set(0)
+        
     loan_purpose_text.delete("1.0", END)
     collateral_entry.delete(0, END)
-    terms_var.set(0)
+    
     return_amount_entry.config(state="normal")
     return_amount_entry.delete(0, END)
     return_amount_entry.config(state="readonly")
@@ -143,6 +149,12 @@ window=Tk()
 window.title("Apply For A Loan")
 window.geometry("800x600")
 window.configure(bg="#e1ffc9")
+
+# --- FIX: INITIALIZE StringVar and IntVar HERE (AFTER Tk()) ---
+repayment_method_var = StringVar(value="Monthly")
+terms_var = IntVar()
+# --- END FIX ---
+
 
 title_label=Label(window,text="APPLY FOR A LOAN",font=("Arial",25,"bold"),bg="#e1ffc9")
 title_label.pack(pady=20)
@@ -204,7 +216,6 @@ return_amount_entry = Entry(widget_frame, font=("Arial", 12), width=30, state="r
 return_amount_entry.grid(row=7, column=1, pady=5)
 
 # Terms and Conditions
-terms_var = IntVar()
 terms_check = Checkbutton(widget_frame, text="I accept the terms and conditions", variable=terms_var, font=("Arial", 12), bg="white")
 terms_check.grid(row=8, columnspan=2, pady=10)
 
