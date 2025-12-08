@@ -10,6 +10,7 @@ MOCK_LOAN_DATA = [
     {"_id": "65b4c1a5", "customer_name": "Alice Smith", "loan_amount": 5000.00, "duration": "2 years", "status": "Approved", "next_payment": "2025-12-15"},
     {"_id": "65b4c1a6", "customer_name": "Bob Johnson", "loan_amount": 12000.00, "duration": "5 years", "status": "Under Payment", "next_payment": "2025-12-20"},
     {"_id": "65b4c1a7", "customer_name": "Charlie Brown", "loan_amount": 1500.00, "duration": "6 months", "status": "Fully Paid", "next_payment": "N/A"},
+    {"_id": "65b4c1a8", "customer_name": "David Wilson", "loan_amount": 8000.00, "duration": "3 years", "status": "Rejected", "next_payment": "N/A"},  # Added a rejected loan
 ]
 
 # --- MAIN APPLICATION CLASS (Manages Screen Switching) ---
@@ -274,6 +275,8 @@ class DashboardFrame(Frame):
         Button(sidebar, text="Pending/New", font=("Arial", 10), bg="#f1c40f", width=18, command=lambda: self.filter_loans("Pending")).pack(pady=3)
         Button(sidebar, text="Under Payment", font=("Arial", 10), bg="#3498db", fg="white", width=18, command=lambda: self.filter_loans("Active")).pack(pady=3)
         Button(sidebar, text="Fully Paid", font=("Arial", 10), bg="#2ecc71", fg="white", width=18, command=lambda: self.filter_loans("Closed")).pack(pady=3)
+        # ADDED: Rejected Loans button
+        Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#e74c3c", fg="white", width=18, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
 
 
         # --- 2. MAIN HEADER & STATUS (Top Row) ---
@@ -313,6 +316,8 @@ class DashboardFrame(Frame):
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f') # Light Blue
         self.tree.tag_configure('fullypaid', background='#dff0d8', foreground='#3c763d') # Light Green
         self.tree.tag_configure('approved', background='#fae8ff', foreground='#9c27b0') # Light Purple
+        # ADDED: Style for rejected loans
+        self.tree.tag_configure('rejected', background='#fdecea', foreground='#d32f2f') # Light Red
 
         # Add Scrollbar
         scrollbar = ttk.Scrollbar(main_content_frame, orient=VERTICAL, command=self.tree.yview)
@@ -347,6 +352,8 @@ class DashboardFrame(Frame):
                      query["status"] = "Fully Paid"
                 elif status_filter == "Pending": 
                      query["status"] = "Pending"
+                elif status_filter == "Rejected":  # ADDED: Handle rejected loans filter
+                     query["status"] = "Rejected"
                 
             loans = list(database.db['loans'].find(query).sort("application_date", -1))
             return loans
@@ -384,6 +391,8 @@ class DashboardFrame(Frame):
             status_text = "Fully Paid"
         elif status == "Pending":
             status_text = "Pending Applications"
+        elif status == "Rejected":  # ADDED: Status text for rejected loans
+            status_text = "Rejected Loans"
             
         self.current_status_label.config(text=f"Status: {status_text}")
 
@@ -400,24 +409,72 @@ class DashboardFrame(Frame):
         self.current_status_label.config(text=f"Search Results for: '{search_term}'")
 
     def approve_loan(self):
-        """Simulates approving a loan."""
+        """Approves a selected loan by updating its status in the database."""
         selected_item = self.tree.focus()
         if not selected_item:
             messagebox.showwarning("Selection Error", "Please select a loan to approve.")
             return
-        loan_id_last_4 = self.tree.item(selected_item, 'values')[0]
-        messagebox.showinfo("Success", f"Loan ending in '{loan_id_last_4}' approved and status set to 'Under Payment'.")
-        self.filter_loans() 
+        
+        # Get the selected loan's full ID from the database
+        selected_loan_id = self.tree.item(selected_item, 'values')[0]
+        selected_loan_name = self.tree.item(selected_item, 'values')[1]
+        
+        # In a real application, you would use the actual loan ID from your data
+        # For now, let's update based on customer name
+        try:
+            if database.db is not None:
+                # Update the loan status in MongoDB
+                result = database.db['loans'].update_one(
+                    {"customer_name": selected_loan_name},
+                    {"$set": {"status": "Approved"}}
+                )
+                
+                if result.modified_count > 0:
+                    messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been approved!")
+                    # Refresh the treeview
+                    self.filter_loans()
+                else:
+                    messagebox.showerror("Error", "Failed to update the loan status.")
+            else:
+                # For mock data, just show success message
+                messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been approved!")
+                self.filter_loans()
+                
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to update loan status: {e}")
 
     def reject_loan(self):
-        """Simulates rejecting a loan."""
+        """Rejects a selected loan by updating its status in the database."""
         selected_item = self.tree.focus()
         if not selected_item:
             messagebox.showwarning("Selection Error", "Please select a loan to reject.")
             return
-        loan_id_last_4 = self.tree.item(selected_item, 'values')[0]
-        messagebox.showinfo("Success", f"Loan ending in '{loan_id_last_4}' rejected.")
-        self.filter_loans() 
+        
+        # Get the selected loan's details
+        selected_loan_id = self.tree.item(selected_item, 'values')[0]
+        selected_loan_name = self.tree.item(selected_item, 'values')[1]
+        
+        try:
+            if database.db is not None:
+                # Update the loan status in MongoDB
+                result = database.db['loans'].update_one(
+                    {"customer_name": selected_loan_name},
+                    {"$set": {"status": "Rejected"}}
+                )
+                
+                if result.modified_count > 0:
+                    messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been rejected!")
+                    # Refresh the treeview
+                    self.filter_loans()
+                else:
+                    messagebox.showerror("Error", "Failed to update the loan status.")
+            else:
+                # For mock data, just show success message
+                messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been rejected!")
+                self.filter_loans()
+                
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to update loan status: {e}")
 
 
 if __name__ == "__main__":
@@ -431,6 +488,10 @@ if __name__ == "__main__":
                     return type('MockResult', (object,), {'inserted_id': 'mock_id'})()
                 def find(self, query=None):
                     return MOCK_LOAN_DATA # Return mock data for dashboard
+                def update_one(self, filter_query, update_data):
+                    # Mock update functionality
+                    print(f"Mock update: {filter_query} -> {update_data}")
+                    return type('MockResult', (object,), {'modified_count': 1})()
                 def sort(self, *args):
                     return self
                 def __iter__(self):
@@ -444,6 +505,10 @@ if __name__ == "__main__":
                 return type('MockResult', (object,), {'inserted_id': 'mock_id'})()
             def find(self, query=None):
                 return MOCK_LOAN_DATA
+            def update_one(self, filter_query, update_data):
+                # Mock update functionality
+                print(f"Mock update: {filter_query} -> {update_data}")
+                return type('MockResult', (object,), {'modified_count': 1})()
             def sort(self, *args):
                 return self
             def __iter__(self):
