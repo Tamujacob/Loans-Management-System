@@ -4,6 +4,9 @@ from tkinter import ttk, messagebox
 import database # Import your MongoDB connection file
 import datetime 
 import uuid 
+import subprocess
+import sys
+import os
 
 # --- MOCK DATA (Fallback for database failure) ---
 MOCK_LOAN_DATA = [
@@ -36,8 +39,9 @@ class LoanApp(Tk):
 
         self.frames = {}
         
-        # Initialize and stack the frames (screens)
-        for F in (ApplicationFrame, DashboardFrame):
+        # Initialize and stack the frames (screens) - ONLY DashboardFrame now
+        # REMOVED: ApplicationFrame from the list of frames
+        for F in (DashboardFrame,):  # Only DashboardFrame
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame
@@ -56,192 +60,45 @@ class LoanApp(Tk):
         if page_name == "DashboardFrame":
             frame.filter_loans(None)
 
-
-# --- SCREEN 1: LOAN APPLICATION FORM ---
-class ApplicationFrame(Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.config(bg="#e1ffc9") # Background color for the form screen
-        
-        # --- Application Variables (References from main controller) ---
-        self.repayment_method_var = controller.repayment_method_var
-        self.terms_var = controller.terms_var
-
-        title_label=Label(self,text="APPLY FOR A LOAN",font=("Arial",20,"bold"),bg="#e1ffc9") # Reduced font size
-        title_label.pack(pady=10)
-
-        # Reduced padx/pady to fit content better in smaller window
-        widget_frame=Frame(self,bg="white", padx=15, pady=15, relief="raised", bd=3) 
-        widget_frame.pack()
-        
-        # --- Form Widgets (Instance variables for access) ---
-        # Full Name
-        Label(widget_frame,text="Full Name:",font=("Arial"), bg="white").grid(row=0,column=0,padx=5,pady=3,sticky=W)
-        self.name_entry=Entry(widget_frame,font=("Arial"),width=25) # Reduced width
-        self.name_entry.grid(row=0,column=1,padx=5,pady=3)
-
-        # Loan Amount
-        Label(widget_frame,text="Loan Amount:",font=("Arial"), bg="white").grid(row=1,column=0,padx=5,pady=3,sticky=W)
-        self.amount_entry=Entry(widget_frame,font=("Arial"),width=25) # Reduced width
-        self.amount_entry.grid(row=1,column=1,padx=5,pady=3)
-        self.amount_entry.bind('<KeyRelease>', self.update_return_amount) 
-
-        # Loan Type (Combo)
-        Label(widget_frame,text="Loan type",font=("Arial"), bg="white").grid(row=2,column=0,padx=5,pady=3,sticky=W)
-        self.type_combo = ttk.Combobox(widget_frame, values=["Personal Loan", "Business Loan", "Car Loan", "Home Loan","School Fees Loan"], font=("Arial", 10), state="readonly", width=23) # Reduced font/width
-        self.type_combo.grid(row=2, column=1, pady=3)
-        self.type_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
-
-        # Repayment Duration (Combo)
-        Label(widget_frame,text="Repayment Duration",font=("Arial"), bg="white").grid(row=3,column=0,padx=5,pady=3,sticky=W)
-        self.duration_combo = ttk.Combobox(widget_frame, values=["6 months", "1 year", "2 years", "3 years","5 years"], font=("Arial", 10), state="readonly", width=23) # Reduced font/width
-        self.duration_combo.grid(row=3, column=1, pady=3,sticky=W)
-        self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount) 
-
-        # Repayment Method (Radiobuttons)
-        Label(widget_frame,text="Repayment Method",font=("Arial"), bg="white").grid(row=4, column=0, pady=3,sticky=W)
-        Radiobutton(widget_frame, text="Monthly", value="Monthly", variable=self.repayment_method_var, font=("Arial"), bg="white").grid(row=4, column=1, pady=3, sticky="w")
-        Radiobutton(widget_frame, text="Weekly", value="Weekly", variable=self.repayment_method_var, font=("Arial"), bg="white").grid(row=4, column=2, pady=3, sticky="w")
-
-        # Loan Purpose (Textarea)
-        Label(widget_frame,text="Loan purpose:", font=("Arial", 12), bg="white").grid(row=5,column=0,sticky="w",pady=3)
-        self.loan_purpose_text = Text(widget_frame, height=3, width=25, font=("Arial", 10)) # Reduced height/width/font
-        self.loan_purpose_text.grid(row=5, column=1, pady=3)
-
-        # Collateral Security
-        Label(widget_frame,text="Collateral Security:", font=("Arial", 12), bg="white").grid(row=6, column=0, sticky="w", pady=3)
-        self.collateral_entry = Entry(widget_frame, font=("Arial", 10), width=25) # Reduced font/width
-        self.collateral_entry.grid(row=6, column=1, pady=3)
-
-        # Return Amount (Display only)
-        Label(widget_frame,text="Estimated Return Amount:", font=("Arial", 12), bg="white").grid(row=7, column=0, sticky="w", pady=3)
-        self.return_amount_entry = Entry(widget_frame, font=("Arial", 10), width=25, state="readonly") # Reduced font/width
-        self.return_amount_entry.grid(row=7, column=1, pady=3)
-
-        # Terms and Conditions
-        Checkbutton(widget_frame, text="I accept the terms and conditions", variable=self.terms_var, font=("Arial", 10), bg="white").grid(row=8, columnspan=2, pady=8)
-
-        btn_frame = Frame(self, bg="#e1ffc9")
-        btn_frame.pack(pady=10)
-
-        # Submit Button
-        Button(btn_frame, text="Submit Application", bg="#28a745", fg="white", font=("Arial", 10, "bold"), width=15, command=self.submit_application).grid(row=0, column=0, padx=5) # Reduced width/font
-        # Clear Button
-        Button(btn_frame, text="Clear", bg="#dc3545", fg="white", font=("Arial", 10, "bold"), width=8, command=self.clear_form).grid(row=0, column=1, padx=5) # Reduced width/font
-        # Back to Dashboard Button (Now uses the controller's show_frame method)
-        Button(btn_frame, text="Dashboard", bg="#007bff", fg="white", font=("Arial", 10, "bold"), width=12, command=lambda: controller.show_frame("DashboardFrame")).grid(row=0, column=2, padx=5) # Reduced width/font
-
-
-    def calculate_return_amount(self):
-        """Calculates the total repayment amount (Principal + Interest)."""
+    def open_loan_application(self):
+        """Opens the external loan application.py file."""
         try:
-            loan_amount = float(self.amount_entry.get())
-            duration_text = self.duration_combo.get()
+            # Try to find the loan application.py file in the current directory
+            loan_app_file = "loan application.py"
             
-            if "year" in duration_text:
-                years = int(duration_text.split()[0])
-            elif "month" in duration_text:
-                months = int(duration_text.split()[0])
-                years = months / 12.0
-            else:
-                return 0
+            # Check if file exists
+            if not os.path.exists(loan_app_file):
+                # Try with different variations
+                variations = [
+                    "loan_application.py",
+                    "loanapplication.py",
+                    "LoanApplication.py",
+                    "./loan application.py",
+                    "../loan application.py"
+                ]
                 
-            ANNUAL_INTEREST_RATE = 0.12 
-            interest_amount = loan_amount * ANNUAL_INTEREST_RATE * years
-            total_return_amount = loan_amount + interest_amount
-            
-            return round(total_return_amount, 2)
-            
-        except (ValueError, Exception):
-            return 0
-
-
-    def update_return_amount(self, event=None):
-        """Updates the return amount entry based on user input."""
-        total = self.calculate_return_amount()
-        self.return_amount_entry.config(state="normal")
-        self.return_amount_entry.delete(0, END)
-        self.return_amount_entry.insert(0, f"{total:,.2f}")
-        self.return_amount_entry.config(state="readonly")
-
-
-    def submit_application(self):
-        """Gathers form data, validates, and saves to MongoDB."""
-        try:
-            customer_name = self.name_entry.get()
-            loan_amount_str = self.amount_entry.get()
-            loan_type = self.type_combo.get()
-            repayment_duration = self.duration_combo.get()
-            repayment_method = self.repayment_method_var.get()
-            loan_purpose = self.loan_purpose_text.get("1.0", END).strip()
-            collateral_security = self.collateral_entry.get()
-            terms_accepted = self.terms_var.get()
-            
-            if not all([customer_name, loan_amount_str, loan_type, repayment_duration]) or not loan_purpose:
-                messagebox.showerror("Validation Error", "Please fill in all required fields.")
-                return
-            
-            if terms_accepted != 1:
-                messagebox.showerror("Validation Error", "You must accept the terms and conditions.")
-                return
-
-            try:
-                loan_amount = float(loan_amount_str)
-                if loan_amount <= 0:
-                    raise ValueError
-            except ValueError:
-                messagebox.showerror("Validation Error", "Loan Amount must be a valid number greater than zero.")
-                return
+                found = False
+                for variation in variations:
+                    if os.path.exists(variation):
+                        loan_app_file = variation
+                        found = True
+                        break
                 
-            total_return_amount = self.calculate_return_amount()
-
-            loan_data = {
-                "loan_id": str(uuid.uuid4()), 
-                "customer_name": customer_name,
-                "loan_amount": loan_amount,
-                "loan_type": loan_type, 
-                "duration": repayment_duration,
-                "repayment_method": repayment_method,
-                "purpose": loan_purpose,
-                "collateral": collateral_security if collateral_security else "None Provided",
-                "return_amount": total_return_amount,
-                "interest_rate": 0.12, 
-                "application_date": datetime.datetime.now(),
-                "status": "Pending",
-                "next_payment": "N/A" 
-            }
+                if not found:
+                    messagebox.showerror("File Not Found", 
+                        f"Could not find 'loan application.py' file.\n"
+                        f"Please ensure it's in the same directory as this file.\n"
+                        f"Current directory: {os.getcwd()}")
+                    return
             
-            if database.db is None:
-                messagebox.showerror("DB Error", "Database not connected. Cannot submit application.")
-                return
-                
-            result = database.db['loans'].insert_one(loan_data)
+            # Open the loan application file
+            subprocess.Popen([sys.executable, loan_app_file])
             
-            if result.inserted_id:
-                messagebox.showinfo("Success", f"Application submitted successfully! Loan ID: {loan_data['loan_id']}")
-                self.clear_form()
-            else:
-                messagebox.showerror("Submission Failed", "Failed to save application to the database.")
-
         except Exception as e:
-            messagebox.showerror("System Error", f"An unexpected error occurred: {e}")
+            messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
 
-    def clear_form(self):
-        """Clears all fields in the form."""
-        self.name_entry.delete(0, END)
-        self.amount_entry.delete(0, END)
-        self.type_combo.set('')
-        self.duration_combo.set('')
-        self.repayment_method_var.set("Monthly")
-        self.terms_var.set(0)
-        self.loan_purpose_text.delete("1.0", END)
-        self.collateral_entry.delete(0, END)
-        self.update_return_amount() 
-
-
-# --- SCREEN 2: LOAN MANAGEMENT DASHBOARD ---
+# --- SCREEN 1: LOAN MANAGEMENT DASHBOARD ---
 class DashboardFrame(Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -259,8 +116,10 @@ class DashboardFrame(Frame):
 
         Label(sidebar, text="Loan Filter & Search", font=("Arial", 14, "bold"), bg="#34495e", fg="white").pack(pady=(10, 15)) # Reduced font/padding
 
-        # Button to switch to Application Form
-        Button(sidebar, text="Open New Application", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", width=18, command=lambda: controller.show_frame("ApplicationFrame")).pack(pady=(5, 10)) # Reduced width/font
+        # Button to switch to Application Form - NOW OPENS EXTERNAL FILE
+        Button(sidebar, text="Open New Application", font=("Arial", 10, "bold"), 
+               bg="#2ecc71", fg="white", width=18, 
+               command=controller.open_loan_application).pack(pady=(5, 10)) # Reduced width/font
 
         # Search Section
         Label(sidebar, text="SEARCH LOANS", font=("Arial", 10), bg="#34495e", fg="#bdc3c7").pack(pady=(10, 5))
