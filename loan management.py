@@ -193,6 +193,8 @@ class DashboardFrame(Frame):
         Button(action_frame, text="View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=5).pack(side=LEFT, padx=5)
         Button(action_frame, text="Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=5, command=self.approve_loan).pack(side=LEFT, padx=5)
         Button(action_frame, text="Reject Loan", font=("Arial", 10), bg="#e74c3c", fg="white", padx=5, command=self.reject_loan).pack(side=LEFT, padx=5)
+        Button(action_frame, text="Record Repayment", font=("Arial", 10), 
+               bg="#9b59b6", fg="white", padx=5, command=self.record_repayment).pack(side=LEFT, padx=5)
         Button(action_frame, text="Export Data", font=("Arial", 10), bg="#95a5a6", fg="white", padx=5).pack(side=RIGHT, padx=5)
 
     # --- Dashboard Functions ---
@@ -334,6 +336,38 @@ class DashboardFrame(Frame):
                 
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to update loan status: {e}")
+
+    def record_repayment(self):
+        """Opens repayment window for selected loan."""
+        selected_item = self.tree.focus()
+        if not selected_item:
+            messagebox.showwarning("Selection Error", "Please select a loan to record repayment.")
+            return
+        
+        # Get loan ID from selection
+        selected_loan_name = self.tree.item(selected_item, 'values')[1]
+        
+        try:
+            # Fetch loan details from database
+            if database.db is not None:
+                loan_data = database.db['loans'].find_one({"customer_name": selected_loan_name})
+                if loan_data:
+                    # Import and open repayment window
+                    try:
+                        from repayment import RepaymentWindow
+                        repayment_win = RepaymentWindow(self, loan_data)
+                    except ImportError as e:
+                        # Fallback: show error message
+                        messagebox.showerror("Import Error", 
+                            f"Cannot import repayment module: {str(e)}\n"
+                            f"Make sure 'repayment.py' exists in the same directory.")
+                else:
+                    messagebox.showerror("Error", "Could not find loan details.")
+            else:
+                messagebox.showinfo("Info", "Repayment feature requires database connection.")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open repayment: {str(e)}")
 
 
 if __name__ == "__main__":
