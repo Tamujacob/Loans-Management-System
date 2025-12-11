@@ -3,6 +3,60 @@ from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 import datetime
 import database # Import the database module directly
+import uuid # Used for mock payment IDs
+
+# ================================================
+# MOCK DATABASE FUNCTIONS (FOR STANDALONE TESTING)
+# ================================================
+# This block simulates the database interactions required by the RepaymentWindow.
+MOCK_PAYMENTS = {
+    'LOAN-12345': [ # Payments for Jane Doe
+        {'_id': 'PAY-001', 'payment_date': '2025-10-15', 'payment_amount': 500.00, 'payment_method': 'Bank Transfer', 'received_by': 'Admin', 'recorded_date': datetime.datetime.now() - datetime.timedelta(days=10)},
+        {'_id': 'PAY-002', 'payment_date': '2025-11-15', 'payment_amount': 500.00, 'payment_method': 'Cash', 'received_by': 'Staff A', 'recorded_date': datetime.datetime.now() - datetime.timedelta(days=5)},
+    ]
+}
+MOCK_LOAN_STATUS = {'LOAN-12345': 'Approved'}
+
+def mock_get_payments_by_loan(loan_id):
+    """Mocks fetching payment history."""
+    return MOCK_PAYMENTS.get(loan_id, [])
+
+def mock_get_total_paid_for_loan(loan_id):
+    """Mocks calculating the total paid amount."""
+    total = sum(p['payment_amount'] for p in MOCK_PAYMENTS.get(loan_id, []))
+    return total
+
+def mock_save_payment(payment_data):
+    """Mocks saving a new payment and returns a mock ID."""
+    loan_id = payment_data['loan_id']
+    new_id = str(uuid.uuid4())
+    payment_data['_id'] = new_id
+    payment_data['recorded_date'] = datetime.datetime.now()
+    
+    if loan_id not in MOCK_PAYMENTS:
+        MOCK_PAYMENTS[loan_id] = []
+        
+    MOCK_PAYMENTS[loan_id].append(payment_data)
+    print(f"Mock DB: Saved new payment {new_id} for loan {loan_id}. Total payments: {len(MOCK_PAYMENTS[loan_id])}")
+    return new_id
+
+def mock_update_loan_status(loan_id, new_status):
+    """Mocks updating the loan status."""
+    MOCK_LOAN_STATUS[loan_id] = new_status
+    print(f"Mock DB: Loan {loan_id} status updated to {new_status}")
+    return True
+
+# Initialize database module with mocks if it's running standalone
+if __name__ == "__main__":
+    database.get_payments_by_loan = mock_get_payments_by_loan
+    database.get_total_paid_for_loan = mock_get_total_paid_for_loan
+    database.save_payment = mock_save_payment
+    database.update_loan_status = mock_update_loan_status
+# If running integrated, these functions are assumed to be implemented in the real database.py
+
+# ================================================
+# REPAYMENT WINDOW CLASS
+# ================================================
 
 class RepaymentWindow(tk.Toplevel):
     def __init__(self, master, loan_data, go_back_callback):
@@ -15,11 +69,14 @@ class RepaymentWindow(tk.Toplevel):
         
         self.title(f"Repayment - {self.loan_data['customer_name']}")
         self.geometry("800x600")
+        self.transient(master) # Keep window on top of its parent
+        self.grab_set() # Modal behavior
+        self.focus_set()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # 2. Configure Grid
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(3, weight=1) # Payments view takes up extra space
+        self.rowconfigure(2, weight=1) # Payments view takes up extra space (row 2 now)
 
         # 3. Create Widgets
         self.create_summary_frame()
@@ -83,14 +140,14 @@ class RepaymentWindow(tk.Toplevel):
         # Payment Date (using tkcalendar)
         ttk.Label(form_frame, text="Payment Date:").grid(row=0, column=2, sticky="w", padx=5, pady=2)
         self.date_entry = DateEntry(form_frame, width=12, background='darkblue', 
-                                    foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                     foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.date_entry.grid(row=0, column=3, sticky="w", padx=5, pady=2)
         
         # Payment Method
         ttk.Label(form_frame, text="Method:").grid(row=0, column=4, sticky="w", padx=5, pady=2)
         self.method_var = tk.StringVar(value='Cash')
         self.method_combo = ttk.Combobox(form_frame, textvariable=self.method_var, 
-                                        values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=15, state='readonly')
+                                         values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=15, state='readonly')
         self.method_combo.grid(row=0, column=5, sticky="w", padx=5, pady=2)
         
         # Received By
@@ -110,7 +167,8 @@ class RepaymentWindow(tk.Toplevel):
     def create_payment_view(self):
         """Creates the Treeview widget to display payment history."""
         view_frame = ttk.LabelFrame(self, text="Payment History", padding="10")
-        view_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+        # CHANGED ROW from 2 to 3 to make room for the action buttons at the bottom
+        view_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew") 
         view_frame.columnconfigure(0, weight=1)
         view_frame.rowconfigure(0, weight=1)
 
@@ -142,14 +200,27 @@ class RepaymentWindow(tk.Toplevel):
     def create_action_buttons(self):
         """Creates the action button frame (Back button)."""
         action_frame = ttk.Frame(self)
-        action_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        # CHANGED ROW from 3 to 4 to match the new grid layout
+        action_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew") 
         action_frame.columnconfigure(0, weight=1)
         
-        # Back Button
-        back_button = ttk.Button(action_frame, text="← Back to Loans Management", command=self.go_back_callback)
+        # Back Button - FIXED COMMAND
+        back_button = ttk.Button(action_frame, text="← Back to Loans Management", command=self._handle_go_back)
         back_button.grid(row=0, column=0, sticky="w")
         
     # --- Data & Logic Methods ---
+    
+    def _handle_go_back(self):
+        """Calls the refresh callback and closes the repayment window."""
+        try:
+            # 1. Execute the callback (to refresh the dashboard/loan management page)
+            self.go_back_callback()
+            
+            # 2. Close this window
+            self.on_close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to return to Dashboard: {e}")
+            self.on_close()
 
     def load_payments(self):
         """Fetches and displays payment history and updates summary."""
@@ -157,7 +228,7 @@ class RepaymentWindow(tk.Toplevel):
         for item in self.payments_tree.get_children():
             self.payments_tree.delete(item)
             
-        # 1. Fetch data
+        # 1. Fetch data (uses the mock functions initialized above)
         payment_list = database.get_payments_by_loan(self.loan_id)
         total_paid = database.get_total_paid_for_loan(self.loan_id)
         
@@ -194,14 +265,18 @@ class RepaymentWindow(tk.Toplevel):
         self.remaining_var.set(f"€{remaining:,.2f}")
         
         # 4. Check Loan Status Update
-        new_status = self.loan_data.get('status', 'Approved')
-        if remaining <= 0.01: # Use a small tolerance for floating point errors
-            new_status = "Fully Repaid"
+        new_status = self.loan_data.get('status', 'Approved') # Default from loan_data
         
-        if self.status_label['text'] != new_status:
+        if remaining <= 0.01: # Use a small tolerance for floating point errors
+            new_status = "Fully Paid" # Changed from 'Fully Repaid' to match Dashboard frame's expected status 'Fully Paid'
+        
+        # Update the status only if it has changed
+        current_status = self.status_label['text']
+        if current_status != new_status:
+            # Update DB and UI
             database.update_loan_status(self.loan_id, new_status)
-            self.status_label.config(text=new_status, foreground='green' if new_status == 'Fully Repaid' else 'blue')
-
+            self.status_label.config(text=new_status, foreground='green' if new_status == 'Fully Paid' else 'blue')
+            self.loan_data['status'] = new_status # Update local data as well
 
     def record_payment(self):
         """Handles validation and saving of the new payment."""
@@ -225,7 +300,15 @@ class RepaymentWindow(tk.Toplevel):
             self.received_by_entry.focus_set()
             return
 
-        # 2. Prepare Data
+        # 2. Check if remaining balance allows this payment
+        remaining_str = self.remaining_var.get().replace('€', '').replace(',', '')
+        remaining_balance = float(remaining_str)
+        if amount > remaining_balance + 0.01: # Allow a small tolerance for overpayment/rounding
+            if not messagebox.askyesno("Overpayment Warning", 
+                                      f"Payment amount (€{amount:,.2f}) exceeds the remaining balance (€{remaining_balance:,.2f}).\nDo you want to proceed and mark the loan as fully paid?"):
+                return
+            
+        # 3. Prepare Data
         payment_data = {
             'loan_id': self.loan_id,
             'customer_name': self.loan_data['customer_name'],
@@ -236,7 +319,7 @@ class RepaymentWindow(tk.Toplevel):
             'notes': notes
         }
         
-        # 3. Save to Database
+        # 4. Save to Database
         payment_id = database.save_payment(payment_data)
         
         if payment_id:
@@ -246,15 +329,18 @@ class RepaymentWindow(tk.Toplevel):
             self.notes_entry.delete(0, tk.END)
             # Reload data
             self.load_payments()
+            # Call the back callback to refresh the parent dashboard
+            self.go_back_callback()
         else:
             messagebox.showerror("Database Error", "Failed to save payment record.")
 
     def on_close(self):
         """Handles cleanup when the window is closed."""
+        self.grab_release()
         self.destroy()
 
 # ================================================
-# DEMO/TESTING BLOCK (MOCK LOAN DATA)
+# DEMO/TESTING BLOCK
 # ================================================
 if __name__ == "__main__":
     # 1. Create the main Tkinter root window
@@ -265,20 +351,19 @@ if __name__ == "__main__":
     # 2. Define mock loan data (must match the structure expected by the window)
     mock_loan_data = {
         '_id': 'LOAN-12345', # Critical ID matching the mock DB placeholder
-        'customer_name': 'Jane Doe',
+        'customer_name': 'Jane Doe (Testing)',
         'loan_amount': 5000.00,
         'loan_type': 'Business',
         'duration': '12 Months',
-        'status': 'Approved'
+        'status': 'Under Payment'
     }
 
     # 3. Define the placeholder callback for the back button
     def go_back_to_management():
         print("\n--- Back Button Pressed ---")
-        print("ACTION: The actual Loans Management Window should be opened here.")
-        app.destroy()
-        root.quit() # End the main loop for this demo
-
+        print("ACTION: Successfully called the callback function (e.g., Dashboard refresh).")
+        print("MOCK LOAN STATUS IS NOW:", MOCK_LOAN_STATUS['LOAN-12345'])
+        
     # 4. Initialize and run the Repayment Window
     app = RepaymentWindow(root, mock_loan_data, go_back_to_management)
     
