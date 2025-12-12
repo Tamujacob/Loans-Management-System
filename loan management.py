@@ -11,11 +11,16 @@ import os
 # --- MOCK DATA (Fallback for database failure - Loans list) ---
 # NOTE: Using a list of dictionaries with full IDs is essential for lookup
 MOCK_LOAN_DATA = [
-    {"_id": "65b4c1a5f0e1d2c3b4a59876", "customer_name": "Alice Smith", "loan_amount": 5000.00, "duration": "2 years", "status": "Approved", "next_payment": "2025-12-15"},
-    {"_id": "65b4c1a6f0e1d2c3b4a59877", "customer_name": "Bob Johnson", "loan_amount": 12000.00, "duration": "5 years", "status": "Under Payment", "next_payment": "2025-12-20"},
-    {"_id": "65b4c1a7f0e1d2c3b4a59878", "customer_name": "Charlie Brown", "loan_amount": 1500.00, "duration": "6 months", "status": "Fully Paid", "next_payment": "N/A"},
-    {"_id": "65b4c1a8f0e1d2c3b4a59879", "customer_name": "David Wilson", "loan_amount": 8000.00, "duration": "3 years", "status": "Rejected", "next_payment": "N/A"},
-    {"_id": "65b4c1a9f0e1d2c3b4a5987a", "customer_name": "Eve Miller", "loan_amount": 3000.00, "duration": "1 year", "status": "Pending", "next_payment": "To be set upon app"},
+    {"_id": "65b4c1a5f0e1d2c3b4a59876", "customer_name": "Alice Smith", "loan_amount": 5000.00, "duration": "2 years", "status": "Approved", "next_payment": "2025-12-15",
+     "loan_type": "Personal", "interest_rate": 8.5, "approved_by": "Manager A"},
+    {"_id": "65b4c1a6f0e1d2c3b4a59877", "customer_name": "Bob Johnson", "loan_amount": 12000.00, "duration": "5 years", "status": "Under Payment", "next_payment": "2025-12-20",
+     "loan_type": "Mortgage", "interest_rate": 4.2, "approved_by": "Manager B"},
+    {"_id": "65b4c1a7f0e1d2c3b4a59878", "customer_name": "Charlie Brown", "loan_amount": 1500.00, "duration": "6 months", "status": "Fully Paid", "next_payment": "N/A",
+     "loan_type": "Short Term", "interest_rate": 10.0, "approved_by": "Manager C"},
+    {"_id": "65b4c1a8f0e1d2c3b4a59879", "customer_name": "David Wilson", "loan_amount": 8000.00, "duration": "3 years", "status": "Rejected", "next_payment": "N/A",
+     "loan_type": "Business", "interest_rate": 7.0, "approved_by": "Manager D"},
+    {"_id": "65b4c1a9f0e1d2c3b4a5987a", "customer_name": "Eve Miller", "loan_amount": 3000.00, "duration": "1 year", "status": "Pending", "next_payment": "To be set upon app",
+     "loan_type": "Personal", "interest_rate": 9.0, "approved_by": "Pending"},
 ]
 
 # --- MAIN APPLICATION CLASS (Manages Screen Switching) ---
@@ -97,8 +102,8 @@ class DashboardFrame(tk.Frame):
 
         # Button to switch to Application Form
         tk.Button(sidebar, text="Open New Application", font=("Arial", 10, "bold"),
-                 bg="#2ecc71", fg="white", width=18,
-                 command=controller.open_loan_application).pack(pady=(5, 10))
+                  bg="#2ecc71", fg="white", width=18,
+                  command=controller.open_loan_application).pack(pady=(5, 10))
 
         # Search Section
         tk.Label(sidebar, text="SEARCH LOANS", font=("Arial", 10), bg="#34495e", fg="#bdc3c7").pack(pady=(10, 5))
@@ -167,11 +172,15 @@ class DashboardFrame(tk.Frame):
         action_frame = tk.Frame(self, bg="#ecf0f1", padx=10, pady=5)
         action_frame.grid(row=2, column=1, sticky="ew")
 
-        tk.Button(action_frame, text="View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=5).pack(side=tk.LEFT, padx=5)
+        # === THE BUTTON UPDATE IS HERE ===
+        tk.Button(action_frame, text="View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=5, 
+                  command=self.view_loan_details).pack(side=tk.LEFT, padx=5)
+        # ===================================
+
         tk.Button(action_frame, text="Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=5, command=self.approve_loan).pack(side=tk.LEFT, padx=5)
         tk.Button(action_frame, text="Reject Loan", font=("Arial", 10), bg="#e74c3c", fg="white", padx=5, command=self.reject_loan).pack(side=tk.LEFT, padx=5)
         tk.Button(action_frame, text="Record Repayment", font=("Arial", 10),
-                 bg="#9b59b6", fg="white", padx=5, command=self.record_repayment).pack(side=tk.LEFT, padx=5)
+                  bg="#9b59b6", fg="white", padx=5, command=self.record_repayment).pack(side=tk.LEFT, padx=5)
         tk.Button(action_frame, text="Export Data", font=("Arial", 10), bg="#95a5a6", fg="white", padx=5).pack(side=tk.RIGHT, padx=5)
 
     # --- Helper Functions ---
@@ -186,15 +195,46 @@ class DashboardFrame(tk.Frame):
         display_id = self.tree.item(selected_item, 'values')[0]
         
         # Search the database or mock data for the loan that ends with this ID
-        for loan in self.fetch_loans(None):
-            if str(loan.get('_id', ''))[-4:] == display_id:
-                return str(loan['_id']), loan
+        # NOTE: We fetch ALL loans and search locally to avoid a database round-trip just for a partial ID
+        all_loans = self.fetch_loans(None)
+        
+        for loan in all_loans:
+            # We must convert to string to use slicing and comparison
+            full_id_str = str(loan.get('_id', ''))
+            if full_id_str[-4:] == display_id:
+                # Returns the full ID string and the full loan dictionary
+                return full_id_str, loan
         
         messagebox.showerror("Error", "Could not find full loan details in database.")
         return None, None
 
+    # === NEW METHOD TO VIEW LOAN DETAILS ===
+    def view_loan_details(self):
+        """
+        Retrieves the full ID of the selected loan and launches the 
+        view_loan_details.py script, passing the ID as an argument.
+        """
+        full_loan_id, _ = self._get_selected_loan_full_data()
+        
+        if full_loan_id:
+            try:
+                # The file we are creating in the next step
+                view_file = "view_loan_details.py" 
+                
+                if not os.path.exists(view_file):
+                    messagebox.showerror("File Not Found", 
+                        f"The file '{view_file}' required to view details was not found.")
+                    return
 
-    # --- Dashboard Data & Action Functions ---
+                # Launch the external script, passing the loan ID as the first command-line argument
+                subprocess.Popen([sys.executable, view_file, full_loan_id])
+                
+            except Exception as e:
+                messagebox.showerror("Execution Error", f"Failed to open loan details window: {str(e)}")
+    # =======================================
+
+
+    # --- Dashboard Data & Action Functions (Unchanged) ---
 
     def fetch_loans(self, status_filter=None):
         """Fetches loan data from MongoDB, applying an optional status filter."""
@@ -356,11 +396,17 @@ if __name__ == "__main__":
     # --- Mock database functions (MUST match the calls used in the app) ---
     def mock_find_one(collection, query):
         if collection == 'loans':
-            for loan in MOCK_LOAN_DATA:
-                if str(loan.get('_id')) == query.get('_id'):
-                    return loan
-                if loan.get('customer_name') == query.get('customer_name'): # Fallback for name-based lookup
-                    return loan
+            # Handle full _id lookup
+            if '_id' in query:
+                for loan in MOCK_LOAN_DATA:
+                    # NOTE: We use str() for comparison because MongoDB IDs are often ObjectId objects
+                    if str(loan.get('_id')) == str(query.get('_id')):
+                        return loan
+            # Fallback for name-based lookup
+            elif 'customer_name' in query:
+                 for loan in MOCK_LOAN_DATA:
+                     if loan.get('customer_name') == query.get('customer_name'):
+                         return loan
         return None
 
     def mock_update_status(loan_id, new_status):
@@ -419,7 +465,7 @@ if __name__ == "__main__":
 
     # Initialize the database mock instance
     if 'db' not in dir(database) or database.db is None:
-         database.db = MockDatabase()
+           database.db = MockDatabase()
 
 
     app = LoanApp()

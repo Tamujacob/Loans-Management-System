@@ -3,6 +3,8 @@ import uuid
 import sys
 from collections import defaultdict
 
+# --- Import and Configuration ---
+
 # Try to import pymongo and use a flag to track success
 try:
     from pymongo import MongoClient
@@ -16,7 +18,12 @@ except ImportError:
     class ObjectId:
         """Mock ObjectId for consistent data structure."""
         def __init__(self, oid=None): 
-            self.oid = oid if oid else str(uuid.uuid4())
+            # If a string ID is passed that looks like a real ID, use it for mock consistency
+            if oid and isinstance(oid, str) and len(oid) == 24 and all(c in '0123456789abcdef' for c in oid.lower()):
+                 self.oid = oid
+            else:
+                 self.oid = oid if oid else str(uuid.uuid4()).replace('-', '')[:24] # Use 24 chars for consistency
+        
         def __str__(self):
             return self.oid
         def __repr__(self):
@@ -27,6 +34,12 @@ except ImportError:
             if isinstance(other, str):
                 return self.oid == other
             return False
+        
+        @staticmethod
+        def is_valid(oid):
+             # Mock validity check
+             return isinstance(oid, str) and (len(oid) == 24 or len(oid) > 4)
+
 
 # --- CONFIGURATION ---
 MONGO_URI = "mongodb://localhost:27017/"
@@ -36,8 +49,23 @@ DB_TIMEOUT_MS = 5000
 # Global variable to hold the database connection object
 db = None
 
+# --- MOCK DATA SOURCE (Must be defined here for consistency with the mock setup) ---
+# NOTE: This should ideally match the structure and IDs in loan_management.py's MOCK_LOAN_DATA
+INITIAL_MOCK_LOAN_DATA = [
+    {"_id": "65b4c1a5f0e1d2c3b4a59876", "customer_name": "Alice Smith", "loan_amount": 5000.00, "duration": "2 years", "status": "Approved", "next_payment": "2025-12-15",
+     "loan_type": "Personal", "interest_rate": 8.5, "approved_by": "Manager A", "notes": "Good credit score."},
+    {"_id": "65b4c1a6f0e1d2c3b4a59877", "customer_name": "Bob Johnson", "loan_amount": 12000.00, "duration": "5 years", "status": "Under Payment", "next_payment": "2025-12-20",
+     "loan_type": "Mortgage", "interest_rate": 4.2, "approved_by": "Manager B", "notes": "Collateral attached."},
+    {"_id": "65b4c1a7f0e1d2c3b4a59878", "customer_name": "Charlie Brown", "loan_amount": 1500.00, "duration": "6 months", "status": "Fully Paid", "next_payment": "N/A",
+     "loan_type": "Short Term", "interest_rate": 10.0, "approved_by": "Manager C", "notes": "No issues."},
+    {"_id": "65b4c1a8f0e1d2c3b4a59879", "customer_name": "David Wilson", "loan_amount": 8000.00, "duration": "3 years", "status": "Rejected", "next_payment": "N/A",
+     "loan_type": "Business", "interest_rate": 7.0, "approved_by": "Manager D", "notes": "Failed background check."},
+    {"_id": "65b4c1a9f0e1d2c3b4a5987a", "customer_name": "Eve Miller", "loan_amount": 3000.00, "duration": "1 year", "status": "Pending", "next_payment": "To be set upon app",
+     "loan_type": "Personal", "interest_rate": 9.0, "approved_by": "Pending", "notes": "New application, awaiting review."},
+]
+
 # ================================================
-# MOCK DATABASE IMPLEMENTATION (UNCHANGED)
+# MOCK DATABASE IMPLEMENTATION (UNCHANGED CORE LOGIC)
 # ================================================
 
 class MockCursor:
@@ -107,7 +135,7 @@ class MockCollection:
         if '_id' not in document:
             document['_id'] = str(ObjectId()) # Use stringified mock ObjectId
         self.data.append(document)
-        print(f"Mock DB: Inserted 1 document into '{self.name}'. ID: {document['_id']}")
+        print(f"Mock DB: Inserted 1 document into '{self.name}'. ID: {document['_id'][-4:]}")
         # Mock result object
         class MockResult:
             def __init__(self, inserted_id): self.inserted_id = inserted_id
@@ -121,20 +149,30 @@ class MockCollection:
         filtered = []
         for doc in self.data:
             match = True
+            
+            # --- Simple Query Matching (covers status and $in) ---
             for key, value in query.items():
                 
                 # Special handling for _id field (allow string comparison)
                 if key == '_id':
+                    # Convert to string for consistent comparison against mock data
                     if str(doc.get(key)) != str(value):
                         match = False
                         break
                 # Simple attribute match for other fields
-                elif key in doc and str(doc[key]) != str(value):
-                    match = False
-                    break
+                elif key in doc:
+                    if isinstance(value, dict) and '$in' in value:
+                        # Handle {"$in": ["Under Payment", "Approved"]}
+                        if doc.get(key) not in value['$in']:
+                            match = False
+                            break
+                    elif str(doc.get(key)) != str(value):
+                        match = False
+                        break
                 elif key not in doc and value is not None:
                     match = False
                     break
+
             if match:
                 filtered.append(doc.copy())
         
@@ -149,6 +187,7 @@ class MockCollection:
                 
                 # Special handling for _id field (allow string comparison)
                 if key == '_id':
+                    # Convert to string for consistent comparison against mock data
                     if str(doc.get(key)) != str(value):
                         match = False
                         break
@@ -156,14 +195,14 @@ class MockCollection:
                 elif key in doc and str(doc[key]) != str(value):
                     match = False
                     break
-            
+                
             if match:
                 # Apply $set updates
                 if '$set' in update_data:
                     for set_key, set_value in update_data['$set'].items():
                         doc[set_key] = set_value
                     modified_count = 1
-                    print(f"Mock DB: Updated 1 document in '{self.name}'. ID: {doc['_id']}")
+                    print(f"Mock DB: Updated 1 document in '{self.name}'. ID: {doc['_id'][-4:]}")
                 break
         
         # Mock result object
@@ -173,6 +212,7 @@ class MockCollection:
 
     def aggregate(self, pipeline):
         """Perform aggregation operations (simple $match/$group with $sum support)."""
+        # (Aggregation mock logic remains robust enough)
         if pipeline and len(pipeline) >= 2:
             if pipeline[0].get('$match') and pipeline[1].get('$group'):
                 match_query = pipeline[0]['$match']
@@ -182,7 +222,8 @@ class MockCollection:
                 for doc in self.data:
                     match = True
                     for key, value in match_query.items():
-                        if key in doc and doc[key] != value:
+                        # Use string comparison for loan_id in payments collection
+                        if key in doc and str(doc[key]) != str(value):
                             match = False
                             break
                     if match:
@@ -209,31 +250,22 @@ class MockCollection:
     # Mock placeholder methods
     def create_index(self, *args, **kwargs):
         print(f"Mock DB: Mock index command executed for {self.name}.")
+    
+    # Crucial: find_one must use the find logic to correctly handle queries
     def find_one(self, *args, **kwargs):
         return next(iter(self.find(*args, **kwargs)), None)
 
 class EnhancedMockDatabase:
-    """Mock database that supports subscription and other operations."""
+    """
+    Mock database initialized with INITIAL_MOCK_LOAN_DATA 
+    to ensure consistency with loan_management.py when run independently.
+    """
     def __init__(self):
-        # Initialize with some mock data for the 'loans' collection for testing
         self.collections = defaultdict(list)
-        # Add a placeholder loan entry so update_loan_status doesn't always fail
-        mock_id = str(ObjectId(oid='LOAN-12345'))
-        self.collections['loans'].append({
-            '_id': mock_id, # Must be a string ID for mock consistency
-            'loan_id': 'LOAN-12345',
-            'customer_name': 'Mock Test Customer',
-            'loan_amount': 5000.0,
-            'status': 'Approved',
-            'loan_type': 'Personal',
-            'duration': '12 Months',
-            'next_payment': 'N/A',
-            'interest_rate': 10.0,
-            'collateral_details': 'None',
-            'officer_assigned': 'Admin',
-            'notes': 'Test loan application.'
-        })
-        print("Enhanced mock database initialized and populated with a test loan.")
+        # Load the predefined mock data into the 'loans' collection
+        self.collections['loans'] = INITIAL_MOCK_LOAN_DATA
+        self.collections['payments'] = [] # Start payments as empty
+        print("Enhanced mock database initialized and populated with standard test data.")
     
     def __getitem__(self, key):
         """Support subscription like db['collection']"""
@@ -246,13 +278,13 @@ class EnhancedMockDatabase:
         if name not in self.collections:
             self.collections[name] = []
             print(f"Mock collection '{name}' created.")
+            
 # ================================================
 # END MOCK DATABASE
 # ================================================
 
 
 def initialize_collections():
-    # ... (function body for initialize_collections is unchanged) ...
     """Ensures that the primary collections (tables) exist and sets up indexes."""
     global db
     if db is not None and MONGO_AVAILABLE:
@@ -264,6 +296,7 @@ def initialize_collections():
                     print(f"Collection '{name}' created.")
 
             # Create Indexes for performance
+            # Note: Index creation syntax is simplified here
             db['loans'].create_index([("loan_id", 1)], unique=True)
             db['loans'].create_index([("customer_name", 1)])
             db['loans'].create_index([("status", 1)])
@@ -276,11 +309,11 @@ def initialize_collections():
 
 
 def connect_to_db():
-    # ... (function body for connect_to_db is unchanged) ...
     """Establishes the connection to MongoDB or falls back to Mock."""
     global db, MONGO_AVAILABLE
     if MONGO_AVAILABLE:
         try:
+            # Setting serverSelectionTimeoutMS handles cases where the DB is down
             client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=DB_TIMEOUT_MS)
             client.admin.command('ping') 
             db = client[DATABASE_NAME]
@@ -295,10 +328,9 @@ def connect_to_db():
         # If MONGO_AVAILABLE was False from the start (ImportError)
         db = EnhancedMockDatabase()
         
-# --- Database Functions Required by RepaymentWindow (Modified/New) ---
+# --- Database Functions Required by GUI ---
 
 def save_payment(payment_data):
-    # ... (function body is unchanged) ...
     """Saves a new payment record using the 'payments' collection."""
     global db
     if db is None: return None
@@ -308,13 +340,12 @@ def save_payment(payment_data):
         payment_data['recorded_date'] = datetime.datetime.now()
         payment_data['payment_amount'] = float(payment_data['payment_amount']) # Ensure correct type
         
-        # The loan_id passed from the GUI must be present
         if 'loan_id' not in payment_data:
             raise ValueError("Payment data is missing 'loan_id'.")
             
+        # If real DB, ensure loan_id (string) is used as filter key
         result = db['payments'].insert_one(payment_data)
         
-        # Return the string representation of the new payment's ID
         return str(result.inserted_id)
         
     except Exception as e:
@@ -322,16 +353,14 @@ def save_payment(payment_data):
         return None
 
 def get_total_paid_for_loan(loan_id):
-    # ... (function body is unchanged) ...
     """Calculates the sum of all payments for a specific loan using aggregation."""
     global db
     if db is None: return 0.0
     
     try:
         pipeline = [
-            # Match documents for the specific loan
-            # Note: Mock DB handles loan_id string directly, real DB needs it to match schema
-            {'$match': {'loan_id': loan_id}},
+            # Match documents for the specific loan ID (which is the full string ID)
+            {'$match': {'loan_id': loan_id}}, 
             # Group all matched documents and sum the payment_amount field
             {'$group': {
                 '_id': '$loan_id',
@@ -351,7 +380,6 @@ def get_total_paid_for_loan(loan_id):
         return 0.0
 
 def get_payments_by_loan(loan_id):
-    # ... (function body is unchanged) ...
     """Retrieves all payment records for a specific loan, sorted by date."""
     global db
     if db is None: return []
@@ -372,8 +400,9 @@ def update_loan_status(loan_id, status):
     if db is None: return False
     
     try:
-        # Handle conversion of ID string to ObjectId if MongoDB is active
-        query_id = ObjectId(loan_id) if MONGO_AVAILABLE else loan_id
+        # --- CRITICAL REAL DB/MOCK ID CONVERSION ---
+        # If MONGO_AVAILABLE, convert string ID to ObjectId for lookup
+        query_id = ObjectId(loan_id) if MONGO_AVAILABLE and ObjectId.is_valid(loan_id) else loan_id
         
         result = db['loans'].update_one(
             {'_id': query_id}, 
@@ -386,26 +415,27 @@ def update_loan_status(loan_id, status):
         print(f"Database Error: Failed to update loan status for {loan_id}: {e}")
         return False
         
-
-# --- NEW FUNCTIONS FOR LoanDetailsWindow ---
+# --- NEW FUNCTIONS FOR LoanDetailsViewer ---
 
 def get_loan_by_id(loan_id):
     """
     Retrieves a single loan document by its unique ID.
-    This function is required by LoanDetailsWindow to fetch full details.
+    This function is required by LoanDetailsViewer to fetch full details.
     """
     global db
     if db is None: return None
     
     try:
-        # Handle conversion of ID string to ObjectId if MongoDB is active
+        # --- CRITICAL REAL DB/MOCK ID CONVERSION ---
+        # If MONGO_AVAILABLE, convert string ID to ObjectId for lookup
         query_id = ObjectId(loan_id) if MONGO_AVAILABLE and ObjectId.is_valid(loan_id) else loan_id
         
         loan = db['loans'].find_one({'_id': query_id})
         
-        if loan:
+        if loan and MONGO_AVAILABLE and isinstance(loan.get('_id'), ObjectId):
             # Convert ObjectId back to string for GUI display consistency
             loan['_id'] = str(loan['_id'])
+        
         return loan
         
     except Exception as e:
@@ -415,13 +445,13 @@ def get_loan_by_id(loan_id):
 def update_loan_details(loan_id, updated_data):
     """
     Updates multiple fields of a specific loan document.
-    This function is required by LoanDetailsWindow to save changes.
+    This function is required by LoanDetailsViewer to save changes.
     """
     global db
     if db is None: return False
     
     try:
-        # Handle conversion of ID string to ObjectId if MongoDB is active
+        # --- CRITICAL REAL DB/MOCK ID CONVERSION ---
         query_id = ObjectId(loan_id) if MONGO_AVAILABLE and ObjectId.is_valid(loan_id) else loan_id
         
         result = db['loans'].update_one(
@@ -438,4 +468,3 @@ def update_loan_details(loan_id, updated_data):
 
 # Establish connection when the module is imported
 connect_to_db()
-
