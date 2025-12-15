@@ -5,58 +5,6 @@ import datetime
 import database # Import the database module directly
 import uuid # Used for mock payment IDs
 
-# ================================================
-# MOCK DATABASE FUNCTIONS (FOR STANDALONE TESTING)
-# ================================================
-# This block simulates the database interactions required by the RepaymentWindow.
-MOCK_PAYMENTS = {
-    'LOAN-12345': [ # Payments for Jane Doe
-        {'_id': 'PAY-001', 'payment_date': '2025-10-15', 'payment_amount': 500.00, 'payment_method': 'Bank Transfer', 'received_by': 'Admin', 'recorded_date': datetime.datetime.now() - datetime.timedelta(days=10)},
-        {'_id': 'PAY-002', 'payment_date': '2025-11-15', 'payment_amount': 500.00, 'payment_method': 'Cash', 'received_by': 'Staff A', 'recorded_date': datetime.datetime.now() - datetime.timedelta(days=5)},
-    ]
-}
-MOCK_LOAN_STATUS = {'LOAN-12345': 'Approved'}
-
-def mock_get_payments_by_loan(loan_id):
-    """Mocks fetching payment history."""
-    return MOCK_PAYMENTS.get(loan_id, [])
-
-def mock_get_total_paid_for_loan(loan_id):
-    """Mocks calculating the total paid amount."""
-    total = sum(p['payment_amount'] for p in MOCK_PAYMENTS.get(loan_id, []))
-    return total
-
-def mock_save_payment(payment_data):
-    """Mocks saving a new payment and returns a mock ID."""
-    loan_id = payment_data['loan_id']
-    new_id = str(uuid.uuid4())
-    payment_data['_id'] = new_id
-    payment_data['recorded_date'] = datetime.datetime.now()
-    
-    if loan_id not in MOCK_PAYMENTS:
-        MOCK_PAYMENTS[loan_id] = []
-        
-    MOCK_PAYMENTS[loan_id].append(payment_data)
-    print(f"Mock DB: Saved new payment {new_id} for loan {loan_id}. Total payments: {len(MOCK_PAYMENTS[loan_id])}")
-    return new_id
-
-def mock_update_loan_status(loan_id, new_status):
-    """Mocks updating the loan status."""
-    MOCK_LOAN_STATUS[loan_id] = new_status
-    print(f"Mock DB: Loan {loan_id} status updated to {new_status}")
-    return True
-
-# Initialize database module with mocks if it's running standalone
-if __name__ == "__main__":
-    database.get_payments_by_loan = mock_get_payments_by_loan
-    database.get_total_paid_for_loan = mock_get_total_paid_for_loan
-    database.save_payment = mock_save_payment
-    database.update_loan_status = mock_update_loan_status
-# If running integrated, these functions are assumed to be implemented in the real database.py
-
-# ================================================
-# REPAYMENT WINDOW CLASS
-# ================================================
 
 class RepaymentWindow(tk.Toplevel):
     def __init__(self, master, loan_data, go_back_callback):
@@ -362,7 +310,7 @@ if __name__ == "__main__":
     def go_back_to_management():
         print("\n--- Back Button Pressed ---")
         print("ACTION: Successfully called the callback function (e.g., Dashboard refresh).")
-        print("MOCK LOAN STATUS IS NOW:", MOCK_LOAN_STATUS['LOAN-12345'])
+        
         
     # 4. Initialize and run the Repayment Window
     app = RepaymentWindow(root, mock_loan_data, go_back_to_management)
