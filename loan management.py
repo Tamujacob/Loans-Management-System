@@ -1,27 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-# NOTE: database.py is not included, assuming it handles MongoDB connection
 import database # Import your MongoDB connection file
-import datetime
-import uuid
 import subprocess
 import sys
 import os
-
-# --- MOCK DATA (Fallback for database failure - Loans list) ---
-# NOTE: Using a list of dictionaries with full IDs is essential for lookup
-MOCK_LOAN_DATA = [
-    {"_id": "65b4c1a5f0e1d2c3b4a59876", "customer_name": "Alice Smith", "loan_amount": 5000.00, "duration": "2 years", "status": "Approved", "next_payment": "2025-12-15",
-     "loan_type": "Personal", "interest_rate": 8.5, "approved_by": "Manager A"},
-    {"_id": "65b4c1a6f0e1d2c3b4a59877", "customer_name": "Bob Johnson", "loan_amount": 12000.00, "duration": "5 years", "status": "Under Payment", "next_payment": "2025-12-20",
-     "loan_type": "Mortgage", "interest_rate": 4.2, "approved_by": "Manager B"},
-    {"_id": "65b4c1a7f0e1d2c3b4a59878", "customer_name": "Charlie Brown", "loan_amount": 1500.00, "duration": "6 months", "status": "Fully Paid", "next_payment": "N/A",
-     "loan_type": "Short Term", "interest_rate": 10.0, "approved_by": "Manager C"},
-    {"_id": "65b4c1a8f0e1d2c3b4a59879", "customer_name": "David Wilson", "loan_amount": 8000.00, "duration": "3 years", "status": "Rejected", "next_payment": "N/A",
-     "loan_type": "Business", "interest_rate": 7.0, "approved_by": "Manager D"},
-    {"_id": "65b4c1a9f0e1d2c3b4a5987a", "customer_name": "Eve Miller", "loan_amount": 3000.00, "duration": "1 year", "status": "Pending", "next_payment": "To be set upon app",
-     "loan_type": "Personal", "interest_rate": 9.0, "approved_by": "Pending"},
-]
 
 # --- MAIN APPLICATION CLASS (Manages Screen Switching) ---
 
@@ -32,6 +14,14 @@ class LoanApp(tk.Tk):
         self.title("Unified Loan Management System")
         self.geometry("800x550")
         self.config(bg="#ecf0f1")
+        
+        # --- Database Check ---
+        # Ensure the database connection is available before proceeding
+        if not hasattr(database, 'db') or database.db is None:
+            messagebox.showerror("Initialization Error", 
+                                 "Database connection failed. Please check 'database.py'. Exiting.")
+            self.destroy()
+            sys.exit()
         
         # Create a container frame where all other frames will be stacked
         container = tk.Frame(self)
@@ -61,19 +51,16 @@ class LoanApp(tk.Tk):
 
     def open_loan_application(self):
         """Opens the external loan application.py file."""
-        # This implementation remains the same
         try:
-            loan_app_file = "loan application.py" # Assuming the name for external file
+            loan_app_file = "loan application.py" 
             
             if not os.path.exists(loan_app_file):
-                # Search for common variations
                 variations = ["loan_application.py", "loanapplication.py", "LoanApplication.py"]
                 found_file = next((v for v in variations if os.path.exists(v)), None)
 
                 if not found_file:
                     messagebox.showerror("File Not Found", 
-                        f"Could not find '{loan_app_file}' or common variations.\n"
-                        f"Ensure it's in the current directory: {os.getcwd()}")
+                        f"Could not find '{loan_app_file}' or common variations.")
                     return
                 loan_app_file = found_file
             
@@ -90,17 +77,15 @@ class DashboardFrame(tk.Frame):
         self.controller = controller
         self.config(bg="#ecf0f1")
         
-        # Make the dashboard content resizable
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         # --- 1. SIDEBAR FRAME (Search and Filters) ---
         sidebar = tk.Frame(self, bg="#34495e", width=200, padx=10, pady=10)
-        sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew") # Changed rowspan to 3
+        sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew") 
 
         tk.Label(sidebar, text="Loan Filter & Search", font=("Arial", 14, "bold"), bg="#34495e", fg="white").pack(pady=(10, 15))
 
-        # Button to switch to Application Form
         tk.Button(sidebar, text="Open New Application", font=("Arial", 10, "bold"),
                   bg="#2ecc71", fg="white", width=18,
                   command=controller.open_loan_application).pack(pady=(5, 10))
@@ -172,10 +157,8 @@ class DashboardFrame(tk.Frame):
         action_frame = tk.Frame(self, bg="#ecf0f1", padx=10, pady=5)
         action_frame.grid(row=2, column=1, sticky="ew")
 
-        # === THE BUTTON UPDATE IS HERE ===
         tk.Button(action_frame, text="View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=5, 
                   command=self.view_loan_details).pack(side=tk.LEFT, padx=5)
-        # ===================================
 
         tk.Button(action_frame, text="Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=5, command=self.approve_loan).pack(side=tk.LEFT, padx=5)
         tk.Button(action_frame, text="Reject Loan", font=("Arial", 10), bg="#e74c3c", fg="white", padx=5, command=self.reject_loan).pack(side=tk.LEFT, padx=5)
@@ -184,41 +167,39 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="Export Data", font=("Arial", 10), bg="#95a5a6", fg="white", padx=5).pack(side=tk.RIGHT, padx=5)
 
     # --- Helper Functions ---
-    def _get_selected_loan_full_data(self):
-        """Retrieves the full loan data based on the selected item's ID in the Treeview."""
-        selected_item = self.tree.focus()
-        if not selected_item:
+    def _get_selected_loan_full_id(self):
+        """
+        Retrieves the full loan ID which is stored invisibly as the Treeview item's iid.
+        This is the most reliable way to pass the ID to other components.
+        """
+        selected_item_iid = self.tree.focus()
+        if not selected_item_iid:
             messagebox.showwarning("Selection Error", "Please select a loan first.")
-            return None, None
+            return None
         
-        # The display ID is the last 4 characters of the full ID
-        display_id = self.tree.item(selected_item, 'values')[0]
-        
-        # Search the database or mock data for the loan that ends with this ID
-        # NOTE: We fetch ALL loans and search locally to avoid a database round-trip just for a partial ID
-        all_loans = self.fetch_loans(None)
-        
-        for loan in all_loans:
-            # We must convert to string to use slicing and comparison
-            full_id_str = str(loan.get('_id', ''))
-            if full_id_str[-4:] == display_id:
-                # Returns the full ID string and the full loan dictionary
-                return full_id_str, loan
-        
-        messagebox.showerror("Error", "Could not find full loan details in database.")
-        return None, None
+        # The iid contains the full ID string
+        return selected_item_iid 
 
-    # === NEW METHOD TO VIEW LOAN DETAILS ===
+    def _get_loan_data_from_db(self, loan_id):
+        """Retrieves the full loan document using the database helper function."""
+        try:
+            # Assumes database.get_loan_by_id(loan_id) is implemented in database.py
+            return database.get_loan_by_id(loan_id)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to fetch loan details for ID {loan_id[-4:]}: {e}")
+            return None
+    
+
+    # === METHOD TO VIEW LOAN DETAILS (Uses full ID directly from Treeview iid) ===
     def view_loan_details(self):
         """
         Retrieves the full ID of the selected loan and launches the 
         view_loan_details.py script, passing the ID as an argument.
         """
-        full_loan_id, _ = self._get_selected_loan_full_data()
+        full_loan_id = self._get_selected_loan_full_id()
         
         if full_loan_id:
             try:
-                # The file we are creating in the next step
                 view_file = "view_loan_details.py" 
                 
                 if not os.path.exists(view_file):
@@ -226,21 +207,18 @@ class DashboardFrame(tk.Frame):
                         f"The file '{view_file}' required to view details was not found.")
                     return
 
-                # Launch the external script, passing the loan ID as the first command-line argument
+                # Launch the external script, passing the full loan ID
                 subprocess.Popen([sys.executable, view_file, full_loan_id])
                 
             except Exception as e:
                 messagebox.showerror("Execution Error", f"Failed to open loan details window: {str(e)}")
-    # =======================================
+    # ==============================================================================
 
 
-    # --- Dashboard Data & Action Functions (Unchanged) ---
+    # --- Dashboard Data & Action Functions ---
 
     def fetch_loans(self, status_filter=None):
         """Fetches loan data from MongoDB, applying an optional status filter."""
-        if database.db is None:
-            return MOCK_LOAN_DATA
-
         try:
             query = {}
             if status_filter:
@@ -248,39 +226,43 @@ class DashboardFrame(tk.Frame):
                     query["status"] = {"$in": ["Under Payment", "Approved"]}
                 elif status_filter == "Closed":
                     query["status"] = "Fully Paid"
-                elif status_filter == "Pending":
-                    query["status"] = "Pending"
-                elif status_filter == "Rejected":
-                    query["status"] = "Rejected"
-                
-            # Use database mock or actual database call
+                else:
+                    query["status"] = status_filter
+                    
+            # Direct query to the MongoDB collection
             loans = database.db['loans'].find(query)
             return list(loans)
         
         except Exception as e:
-            print(f"Database error during fetch: {e}")
-            messagebox.showerror("Database Error", "Failed to connect to the database. Displaying mock data.")
-            return MOCK_LOAN_DATA
+            messagebox.showerror("Database Error", f"Failed to retrieve loan data: {e}")
+            return [] # Return empty list on failure
 
     def update_treeview(self, loan_list):
-        """Clears and repopulates the Treeview with loan data."""
+        """
+        Clears and repopulates the Treeview, storing the full loan ID 
+        in the internal 'iid' field.
+        """
         for i in self.tree.get_children():
             self.tree.delete(i)
             
         for loan in loan_list:
-            # Use the last 4 characters of the full ID for display
-            loan_id_display = str(loan.get('_id', 'N/A'))[-4:]
+            # Use the full ID as the internal identifier (iid)
+            full_loan_id = str(loan.get('_id', 'N/A'))
+            loan_id_display = full_loan_id[-4:] 
 
             data = (
                 loan_id_display,
                 loan.get('customer_name', 'N/A'),
-                f"€{loan.get('loan_amount', 0.00):,.2f}", # Changed $ to € for generic example
+                f"€{loan.get('loan_amount', 0.00):,.2f}", 
                 loan.get('duration', 'N/A'),
                 loan.get('status', 'Unknown'),
                 loan.get('next_payment', 'N/A')
             )
             tag = loan.get('status', '').replace(" ", "").lower()
-            self.tree.insert('', tk.END, values=data, tags=(tag,))
+            
+            # CRITICAL: Pass the full_loan_id as the item identifier (iid)
+            self.tree.insert('', tk.END, iid=full_loan_id, values=data, tags=(tag,))
+
 
     def filter_loans(self, status=None):
         """Filters data based on status and updates the Treeview."""
@@ -300,7 +282,7 @@ class DashboardFrame(tk.Frame):
         self.current_status_label.config(text=f"Status: {status_text}")
 
     def search_loans(self):
-        """Searches current Treeview data by name or status."""
+        """Fetches all loans and filters them locally based on search term."""
         search_term = self.search_entry.get().lower()
         all_loans = self.fetch_loans(None)
         
@@ -313,11 +295,13 @@ class DashboardFrame(tk.Frame):
 
     def approve_loan(self):
         """Approves a selected loan by updating its status in the database."""
-        loan_id, loan_data = self._get_selected_loan_full_data()
-        if not loan_id:
-            return
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
+        
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
 
-        selected_loan_name = loan_data['customer_name']
+        selected_loan_name = loan_data.get('customer_name', 'N/A Customer')
 
         if loan_data.get('status') == 'Approved':
             messagebox.showinfo("Info", f"Loan for '{selected_loan_name}' is already Approved.")
@@ -330,15 +314,17 @@ class DashboardFrame(tk.Frame):
             self.filter_loans(None) # Refresh
                 
         except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to update loan status: {e}")
+            messagebox.showerror("Database Error", f"Failed to approve loan: {e}")
 
     def reject_loan(self):
         """Rejects a selected loan by updating its status in the database."""
-        loan_id, loan_data = self._get_selected_loan_full_data()
-        if not loan_id:
-            return
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
+        
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
 
-        selected_loan_name = loan_data['customer_name']
+        selected_loan_name = loan_data.get('customer_name', 'N/A Customer')
 
         if loan_data.get('status') == 'Rejected':
             messagebox.showinfo("Info", f"Loan for '{selected_loan_name}' is already Rejected.")
@@ -351,34 +337,26 @@ class DashboardFrame(tk.Frame):
             self.filter_loans(None) # Refresh
                 
         except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to update loan status: {e}")
+            messagebox.showerror("Database Error", f"Failed to reject loan: {e}")
 
     def record_repayment(self):
-        """
-        Opens repayment window for selected loan.
-        FIXED: Passes the required 'go_back_callback' argument.
-        """
-        loan_id, loan_data = self._get_selected_loan_full_data()
-        if not loan_id:
-            return
+        """Opens repayment window for selected loan."""
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
         
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
+
         if loan_data.get('status') in ['Rejected', 'Fully Paid']:
              messagebox.showwarning("Repayment Not Allowed", f"Loan status is '{loan_data.get('status')}'. Repayments are not allowed.")
              return
 
         try:
-            # Check for database connection for actual data fetch
-            if database.db is None:
-                messagebox.showinfo("Info", "Repayment feature requires database connection. Cannot open window with mock data.")
-                return
-
-            # Import and open repayment window
+            # Import and open repayment window (repayment.py must be available)
             try:
                 from repayment import RepaymentWindow
                 
-                # *** FIX APPLIED HERE: Pass self.filter_loans as the callback ***
-                # This function (self.filter_loans) will be called when the user clicks 'Back' 
-                # or records a payment in the RepaymentWindow.
+                # Pass self.filter_loans as the callback to refresh the dashboard after payment
                 repayment_win = RepaymentWindow(self, loan_data, self.filter_loans)
                 
             except ImportError as e:
@@ -391,82 +369,10 @@ class DashboardFrame(tk.Frame):
 
 
 if __name__ == "__main__":
-    # Mock the database object if not running in the environment
+    # Ensure database.py connection is initialized before running the app
+    # If database.py doesn't automatically connect on import, 
+    # you might need to add a line here like: database.initialize_connection() 
+    # based on how your database.py is structured.
     
-    # --- Mock database functions (MUST match the calls used in the app) ---
-    def mock_find_one(collection, query):
-        if collection == 'loans':
-            # Handle full _id lookup
-            if '_id' in query:
-                for loan in MOCK_LOAN_DATA:
-                    # NOTE: We use str() for comparison because MongoDB IDs are often ObjectId objects
-                    if str(loan.get('_id')) == str(query.get('_id')):
-                        return loan
-            # Fallback for name-based lookup
-            elif 'customer_name' in query:
-                 for loan in MOCK_LOAN_DATA:
-                     if loan.get('customer_name') == query.get('customer_name'):
-                         return loan
-        return None
-
-    def mock_update_status(loan_id, new_status):
-        """Finds loan by full ID and updates status in MOCK_LOAN_DATA list."""
-        for loan in MOCK_LOAN_DATA:
-            if str(loan.get('_id')) == str(loan_id):
-                loan['status'] = new_status
-                # Also mock next_payment change
-                if new_status == 'Approved':
-                    loan['next_payment'] = 'To be set upon repayment'
-                elif new_status == 'Rejected' or new_status == 'Fully Paid':
-                     loan['next_payment'] = 'N/A'
-                print(f"Mock DB: Updated loan {loan_id[-4:]} to status '{new_status}'")
-                return type('MockResult', (object,), {'modified_count': 1})()
-        return type('MockResult', (object,), {'modified_count': 0})()
-        
-    class MockCollection:
-        def __init__(self, name):
-            self.name = name
-
-        def find(self, query=None):
-            # Apply filtering logic to MOCK_LOAN_DATA
-            if query and 'status' in query:
-                status_val = query['status']
-                if isinstance(status_val, dict) and '$in' in status_val:
-                    # Handle {"$in": ["Under Payment", "Approved"]}
-                    return [loan for loan in MOCK_LOAN_DATA if loan['status'] in status_val['$in']]
-                else:
-                    # Handle single status filter
-                    return [loan for loan in MOCK_LOAN_DATA if loan['status'] == status_val]
-            return MOCK_LOAN_DATA
-
-        def find_one(self, query):
-            # Mock find_one logic
-            return mock_find_one(self.name, query)
-            
-        def update_one(self, filter_query, update_data):
-            # update_one is now handled via the helper function in the app logic
-            # For direct access, we return a mock update result
-            return type('MockResult', (object,), {'modified_count': 1})() 
-            
-        def sort(self, *args):
-            return self
-
-    class MockDatabase:
-        def __getitem__(self, key):
-            return MockCollection(key)
-        
-        # Add the helper functions the app expects
-        def get_loan_by_id(self, loan_id):
-            return mock_find_one('loans', {'_id': loan_id})
-        
-        def update_loan_status(self, loan_id, new_status):
-            return mock_update_status(loan_id, new_status)
-
-
-    # Initialize the database mock instance
-    if 'db' not in dir(database) or database.db is None:
-           database.db = MockDatabase()
-
-
     app = LoanApp()
     app.mainloop()
