@@ -2,65 +2,80 @@ from tkinter import *
 from tkinter import messagebox
 import database
 import subprocess
-import bcrypt # Needed to verify hashed passwords
+import bcrypt # Essential for password hashing/verification
 
 # --- Navigation Function ---
 def open_create_account(current_window):
-    """Closes the current window and opens the create_account.py script."""
+    """Closes the current window and opens the create account script."""
+    # Note: Assumes 'create account.py' exists and is in the same directory.
     current_window.destroy()
-    subprocess.Popen(["python", "create account.py"])
+    try:
+        subprocess.Popen(["python", "create account.py"])
+    except FileNotFoundError:
+        messagebox.showerror("Error", "Could not find 'create account.py'.")
 
-
-# --- Main Login Logic (Updated for MongoDB) ---
+# --- Main Login Logic ---
 def verify_login(username, password, window):
     """
-    Checks credentials against the MongoDB 'users' collection.
+    Checks credentials against the MongoDB 'users' collection using bcrypt 
+    for secure password verification.
     """
     if database.db is None:
         messagebox.showerror("Connection Error", "Database not connected. Cannot log in.")
         return False
 
-    # 1. Find the user by username
-    user_doc = database.db['users'].find_one({"username": username})
+    try:
+        # 1. Find the user by username
+        # database.db['users'] is the MongoDB collection object
+        user_doc = database.db['users'].find_one({"username": username})
 
-    if user_doc:
-        # 2. User found: Verify the hashed password
-        stored_hash = user_doc['password_hash'].encode('utf-8')
-        input_password_bytes = password.encode('utf-8')
+        if user_doc:
+            # 2. User found: Verify the hashed password
+            # Passwords are stored as bytes, so we encode the stored hash and the input password
+            stored_hash = user_doc.get('password_hash', '').encode('utf-8')
+            input_password_bytes = password.encode('utf-8')
 
-        # bcrypt.checkpw compares the raw password to the stored hash
-        if bcrypt.checkpw(input_password_bytes, stored_hash):
-            return True # Login successful
+            # bcrypt.checkpw compares the raw password to the stored hash
+            if bcrypt.checkpw(input_password_bytes, stored_hash):
+                return True # Login successful
+            else:
+                return False # Password mismatch
         else:
-            return False # Password mismatch
-    else:
-        # 3. User not found
+            # 3. User not found
+            return False
+            
+    except Exception as e:
+        messagebox.showerror("Database Error", f"An error occurred during login verification: {e}")
         return False
 
 def login():
-    """Handles button press and attempts to log in."""
+    """Handles button press, attempts to log in, and navigates on success."""
     user = user_entry.get()
     passw = pass_entry.get()
 
-    # --- Replaced Dummy Check with MongoDB Check ---
     if verify_login(user, passw, window):
         messagebox.showinfo("Login Successful", f"Welcome, {user}!")
         window.destroy()  # Close login window
-        subprocess.Popen(["python", "dashboard.py"])  # Open dashboard
+        try:
+            # Note: Assumes 'dashboard.py' exists and is in the same directory.
+            subprocess.Popen(["python", "dashboard.py"])  # Open dashboard
+        except FileNotFoundError:
+            messagebox.showerror("Error", "Login successful, but could not find 'dashboard.py'.")
     else:
         messagebox.showerror("Login Failed", "Invalid Username or Password!")
 
 # ----------------------------------------------------
+# --- GUI SETUP ---
 
 # Create main window
 window = Tk()
 window.title("Loan Management System - Login")
-window.geometry("500x400") # Increased Size
+window.geometry("500x400") 
 window.configure(bg="#2c3e50") # Dark background for modern look
 
 # Check DB connection status on launch
 if database.db is None:
-    messagebox.showwarning("DB Warning", "Could not connect to MongoDB. Login function will fail.")
+    messagebox.showwarning("DB Warning", "Could not connect to MongoDB. Login function will rely on DB connection. Please check database.py.")
 
 # Center Frame (Enhanced Styling)
 frame = Frame(window, bg="white", padx=40, pady=40, relief="raised", bd=5)
