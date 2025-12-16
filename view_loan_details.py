@@ -44,20 +44,38 @@ class ViewLoanDetailsPage:
 
         # 2. Build UI
         self._create_styles()
-        self._create_header_and_back_button()
+        self._create_header_and_back_button() 
         self._create_summary_panel()
         self._create_notebook()
 
     def _create_styles(self):
-        """Define custom styles for status colors and labels."""
+        """Define custom styles for status colors, labels, and the back button."""
         style = ttk.Style()
+        
+        # Use 'clam' or 'alt' theme which supports custom background colors better
+        style.theme_use('clam') 
+
         style.configure('TFrame', background='#f7f9fa')
         style.configure('Header.TLabel', font=('Arial', 24, 'bold'), foreground='#2c3e50')
         style.configure('Summary.TLabel', font=('Arial', 12))
         style.configure('InfoKey.TLabel', font=('Arial', 11, 'bold'), foreground='#555555')
         style.configure('InfoValue.TLabel', font=('Arial', 11))
         
-        # Status Tags
+        # --- ENHANCED VISIBILITY BUTTON STYLE (BLUE) ---
+        style.configure('Dashboard.TButton', 
+                        font=('Arial', 12, 'bold'), 
+                        foreground='white', 
+                        background='#3498db', # Primary Blue
+                        padding=[10, 5],
+                        relief='flat') 
+        
+        # Force the background color to show up in all states
+        style.map('Dashboard.TButton', 
+                  background=[('active', '#2980b9'), # Darker blue on hover/click
+                              ('!disabled', '#3498db')],
+                  foreground=[('!disabled', 'white')])
+
+        # Status Tags (Retained)
         style.configure('Pending.TLabel', background='#fff3cd', foreground='#856404', borderwidth=1, relief='solid')
         style.configure('Approved.TLabel', background='#d4edda', foreground='#155724', borderwidth=1, relief='solid')
         style.configure('Active.TLabel', background='#cce5ff', foreground='#004085', borderwidth=1, relief='solid')
@@ -78,16 +96,19 @@ class ViewLoanDetailsPage:
         ttk.Label(self.frame, text="🛑 Loan Not Found", 
                   font=('Arial', 18, 'bold'), foreground='#a83232').pack(pady=20)
         ttk.Label(self.frame, text=f"No loan details found for ID: {self.loan_id}", font=('Arial', 12)).pack(pady=5)
-        self._create_back_button()
+        self._create_back_button() 
 
     def _create_header_and_back_button(self):
-        """Creates the main title header and the back button."""
+        """
+        Creates the main title header and the enhanced back button.
+        """
         header_frame = ttk.Frame(self.frame)
         header_frame.pack(fill='x', pady=(0, 15))
         
-        # Back Button - Placed on the left
+        # Back Button - Placed on the left, using the visible style
         ttk.Button(header_frame, text="← Back to Loans Dashboard", 
-                   command=self.switch_to_dashboard_callback).pack(side=tk.LEFT, padx=(0, 20))
+                   command=self.switch_to_dashboard_callback,
+                   style='Dashboard.TButton').pack(side=tk.LEFT, padx=(0, 30))
         
         # Title - Placed on the right
         customer_name = self.loan_data.get('customer_name', 'N/A')
@@ -133,7 +154,6 @@ class ViewLoanDetailsPage:
     def _create_notebook(self):
         """Creates a tabbed interface for Loan Info and Payment History."""
         
-        # Create the notebook (tab container)
         notebook = ttk.Notebook(self.frame)
         notebook.pack(fill='both', expand=True, pady=10)
 
@@ -150,8 +170,7 @@ class ViewLoanDetailsPage:
 
     def _populate_loan_info_tab(self, parent_frame):
         """Populates the Loan Information tab."""
-        # Use Grid layout for cleaner key/value alignment
-        parent_frame.columnconfigure(1, weight=1) # Make value column expand
+        parent_frame.columnconfigure(1, weight=1) 
         
         # Helper function to add a row of key/value pairs
         def add_info_row(key, value, row):
@@ -216,3 +235,10 @@ class ViewLoanDetailsPage:
 
         vsb.grid(row=0, column=1, sticky='ns')
         self.payment_tree.grid(row=0, column=0, sticky='nsew')
+        
+        
+    def _create_back_button(self):
+        """Creates a fallback button for error views."""
+        ttk.Button(self.frame, text="← Back to Loans Dashboard", 
+                   command=self.switch_to_dashboard_callback,
+                   style='Dashboard.TButton').pack(pady=20)
