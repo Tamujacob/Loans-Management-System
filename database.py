@@ -4,7 +4,7 @@ from collections import defaultdict
 
 # --- Import and Configuration ---
 
-# Try to import pymongo and essential BSON classes
+# import pymongo and essential BSON classes
 try:
     from pymongo import MongoClient
     from bson.objectid import ObjectId
