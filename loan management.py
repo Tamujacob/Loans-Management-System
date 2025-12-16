@@ -5,6 +5,16 @@ import subprocess
 import sys
 import os
 
+# --- IMPORT NECESSARY EXTERNAL WINDOWS ---
+# 1. RepaymentWindow is used in record_repayment (already there)
+# 2. ViewLoanDetailsPage needs to be imported to be called directly
+try:
+    # We rename the import to avoid confusion if the file name is similar
+    from view_loan_details import ViewLoanDetailsPage as LoanDetailsViewer 
+except ImportError:
+    # Handle this gracefully if the user hasn't created the file yet
+    LoanDetailsViewer = None 
+
 # --- MAIN APPLICATION CLASS (Manages Screen Switching) ---
 
 class LoanApp(tk.Tk):
@@ -16,7 +26,6 @@ class LoanApp(tk.Tk):
         self.config(bg="#ecf0f1")
         
         # --- Database Check ---
-        # Ensure the database connection is available before proceeding
         if not hasattr(database, 'db') or database.db is None:
             messagebox.showerror("Initialization Error", 
                                  "Database connection failed. Please check 'database.py'. Exiting.")
@@ -55,6 +64,7 @@ class LoanApp(tk.Tk):
             loan_app_file = "loan application.py" 
             
             if not os.path.exists(loan_app_file):
+                # Added robust file search for common variations
                 variations = ["loan_application.py", "loanapplication.py", "LoanApplication.py"]
                 found_file = next((v for v in variations if os.path.exists(v)), None)
 
@@ -177,7 +187,7 @@ class DashboardFrame(tk.Frame):
             messagebox.showwarning("Selection Error", "Please select a loan first.")
             return None
         
-        # The iid contains the full ID string
+        # The iid contains the full ID string (which is the MongoDB ObjectId string)
         return selected_item_iid 
 
     def _get_loan_data_from_db(self, loan_id):
@@ -190,26 +200,53 @@ class DashboardFrame(tk.Frame):
             return None
     
 
-    # === METHOD TO VIEW LOAN DETAILS (Uses full ID directly from Treeview iid) ===
+    # === CORRECTED METHOD TO VIEW LOAN DETAILS (Opens Toplevel Window) ===
     def view_loan_details(self):
         """
-        Retrieves the full ID of the selected loan and launches the 
-        view_loan_details.py script, passing the ID as an argument.
+        Opens a new Toplevel window to display the selected loan's details 
+        using the imported LoanDetailsViewer class.
         """
         full_loan_id = self._get_selected_loan_full_id()
         
         if full_loan_id:
-            try:
-                view_file = "view_loan_details.py" 
-                
-                if not os.path.exists(view_file):
-                    messagebox.showerror("File Not Found", 
-                        f"The file '{view_file}' required to view details was not found.")
-                    return
+            loan_data = self._get_loan_data_from_db(full_loan_id)
 
-                # Launch the external script, passing the full loan ID
-                subprocess.Popen([sys.executable, view_file, full_loan_id])
+            if not loan_data:
+                messagebox.showerror("Error", "Could not fetch selected loan data for viewing.")
+                return
+
+            if LoanDetailsViewer is None:
+                messagebox.showerror("Error", 
+                    "LoanDetailsViewer class is missing. Ensure 'view_loan_details.py' exists and is correct.")
+                return
+
+            try:
+                # 1. Create a new Toplevel window 
+                # 2. Instantiate the LoanDetailsViewer page inside it
+                # 3. The page takes the master, the loan ID, and a callback function
                 
+                # NOTE: ViewLoanDetailsPage is designed to replace contents of its master, 
+                # so we instantiate it *inside* a new Toplevel (tk.Tk() or tk.Toplevel)
+
+                # Create the window container
+                detail_window = tk.Toplevel(self.controller)
+                detail_window.title(f"Loan Details - {loan_data.get('customer_name')}")
+                detail_window.geometry("850x700")
+                detail_window.grab_set() # Make it modal
+                
+                # The callback function will destroy the detail window and refresh the dashboard
+                def close_and_refresh():
+                    detail_window.grab_release()
+                    detail_window.destroy()
+                    self.filter_loans(None) # Refresh the dashboard data
+
+                # Instantiate the page logic within the Toplevel window
+                LoanDetailsViewer(
+                    detail_window, 
+                    full_loan_id, 
+                    close_and_refresh
+                )
+
             except Exception as e:
                 messagebox.showerror("Execution Error", f"Failed to open loan details window: {str(e)}")
     # ==============================================================================
@@ -308,7 +345,6 @@ class DashboardFrame(tk.Frame):
             return
 
         try:
-            # Assumes database.update_loan_status(loan_id, status) exists in database.py
             database.update_loan_status(loan_id, "Approved")
             messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been approved!")
             self.filter_loans(None) # Refresh
@@ -331,7 +367,6 @@ class DashboardFrame(tk.Frame):
             return
         
         try:
-            # Assumes database.update_loan_status(loan_id, status) exists in database.py
             database.update_loan_status(loan_id, "Rejected")
             messagebox.showinfo("Success", f"Loan for '{selected_loan_name}' has been rejected!")
             self.filter_loans(None) # Refresh
@@ -348,8 +383,8 @@ class DashboardFrame(tk.Frame):
         if not loan_data: return
 
         if loan_data.get('status') in ['Rejected', 'Fully Paid']:
-             messagebox.showwarning("Repayment Not Allowed", f"Loan status is '{loan_data.get('status')}'. Repayments are not allowed.")
-             return
+               messagebox.showwarning("Repayment Not Allowed", f"Loan status is '{loan_data.get('status')}'. Repayments are not allowed.")
+               return
 
         try:
             # Import and open repayment window (repayment.py must be available)
@@ -369,10 +404,5 @@ class DashboardFrame(tk.Frame):
 
 
 if __name__ == "__main__":
-    # Ensure database.py connection is initialized before running the app
-    # If database.py doesn't automatically connect on import, 
-    # you might need to add a line here like: database.initialize_connection() 
-    # based on how your database.py is structured.
-    
     app = LoanApp()
     app.mainloop()

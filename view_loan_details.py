@@ -2,18 +2,22 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from datetime import datetime
-from bson.objectid import ObjectId # Keep this for ObjectId type reference/safety
+from bson.objectid import ObjectId # Kept for ObjectId type reference/safety
 
 # --- Import Database Functions ---
-# This imports the 'db' object and the getter functions defined in database.py
+# This imports the real MongoDB getter functions defined in database.py
 from database import get_loan_by_id, get_payments_by_loan, get_total_paid_for_loan 
 
 
 class ViewLoanDetailsPage:
+    """
+    A Tkinter frame class to display all detailed information and payment history 
+    for a single loan, fetched from the MongoDB database.
+    """
     def __init__(self, master, loan_id, switch_to_dashboard_callback):
         """
         Initializes the loan details page.
-        :param master: The parent Tkinter frame.
+        :param master: The parent Tkinter frame (e.g., the dashboard's main container).
         :param loan_id: The string ID of the loan to display.
         :param switch_to_dashboard_callback: Function to call when 'Back' is clicked.
         """
@@ -21,7 +25,7 @@ class ViewLoanDetailsPage:
         self.loan_id = loan_id
         self.switch_to_dashboard_callback = switch_to_dashboard_callback
 
-        # Clear any existing widgets in the master frame
+        # Clear any existing widgets in the master frame (standard dashboard practice)
         for widget in self.master.winfo_children():
             widget.destroy()
 
@@ -45,12 +49,10 @@ class ViewLoanDetailsPage:
 
     def _fetch_loan_details(self, loan_id):
         """Fetches loan details using the database function."""
-        # The database.py function handles the real ObjectId conversion/mock fallback
         return get_loan_by_id(loan_id)
 
     def _fetch_payment_history(self, loan_id):
         """Fetches payment history using the database function."""
-        # The database.py function handles fetching and sorting
         return get_payments_by_loan(loan_id)
 
     def _show_not_found(self):
@@ -74,7 +76,7 @@ class ViewLoanDetailsPage:
         def add_info_row(key, value, row):
             ttk.Label(loan_info_frame, text=f"{key}:", font=('Arial', 11, 'bold')).grid(row=row, column=0, sticky='w', padx=10, pady=3)
             ttk.Label(loan_info_frame, text=value, font=('Arial', 11)).grid(row=row, column=1, sticky='w', padx=10, pady=3)
-            loan_info_frame.grid_columnconfigure(1, weight=1) # Makes the value column expand
+            loan_info_frame.grid_columnconfigure(1, weight=1) 
 
         # Format key data points
         loan_id_str = str(self.loan_data.get('_id', 'N/A'))
@@ -82,6 +84,7 @@ class ViewLoanDetailsPage:
         interest_str = f"{self.loan_data.get('interest_rate', 0.0)}%"
         
         app_date = self.loan_data.get('application_date', None)
+        # Handle datetime object from MongoDB
         app_date_str = app_date.strftime('%Y-%m-%d') if isinstance(app_date, datetime) else 'N/A'
         
         # Display the information
@@ -121,12 +124,12 @@ class ViewLoanDetailsPage:
         # Insert data into the table
         if self.payment_history:
             for payment in self.payment_history:
-                # Use 'payment_date' and 'recorded_date' keys
-                pay_date_obj = payment.get('payment_date', None)
+                # Use 'payment_date' (user input string) and 'recorded_date' (MongoDB datetime) keys
+                pay_date_str = payment.get('payment_date', 'N/A')
                 rec_date_obj = payment.get('recorded_date', None)
                 
-                pay_date_str = pay_date_obj.strftime('%Y-%m-%d') if isinstance(pay_date_obj, datetime) else 'N/A'
-                rec_date_str = rec_date_obj.strftime('%Y-%m-%d') if isinstance(rec_date_obj, datetime) else 'N/A'
+                # Format the MongoDB datetime object
+                rec_date_str = rec_date_obj.strftime('%Y-%m-%d %H:%M') if isinstance(rec_date_obj, datetime) else 'N/A'
                 
                 amount = payment.get('payment_amount', 0.00)
                 amount_str = f"{amount:,.2f}"
@@ -145,33 +148,3 @@ class ViewLoanDetailsPage:
     def _create_back_button(self):
         """Creates a button to return to the main view/dashboard."""
         ttk.Button(self.frame, text="← Back to Loans Dashboard", command=self.switch_to_dashboard_callback).pack(pady=20)
-
-
-# --- Example Run Block ---
-if __name__ == '__main__':
-    # Find a loan ID from the mock data to test
-    from database import LOAN_ID_ALICE # Use the defined mock ID for testing
-    
-    if LOAN_ID_ALICE:
-        root = tk.Tk()
-        root.title("Loan Management System - Loan Details")
-        root.geometry("850x700")
-
-        main_frame = ttk.Frame(root)
-        main_frame.pack(fill='both', expand=True)
-
-        # Mock callback function for the 'Back' button
-        def go_back():
-            messagebox.showinfo("Navigation", "Navigating back to the Loans Dashboard...")
-            root.destroy()
-
-        # Instantiate the page
-        loan_details_page = ViewLoanDetailsPage(
-            main_frame, 
-            LOAN_ID_ALICE, # Pass the ID of Alice's loan
-            go_back
-        )
-
-        root.mainloop()
-    else:
-        print("Cannot run example: No test loan ID available.")
