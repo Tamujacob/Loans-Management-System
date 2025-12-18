@@ -6,15 +6,13 @@ import uuid
 import subprocess
 import sys
 
-# -------------------------------------------------------
+
 # GLOBAL VARIABLES (Initialized after window creation)
-# -------------------------------------------------------
 repayment_method_var = None
 terms_var = None
 
-# -------------------------------------------------------
-# HELPER FUNCTION: Calculate Return Amount
-# -------------------------------------------------------
+# Calculate Return Amount
+
 def calculate_return_amount():
     """
     Calculates the loan repayment amount using simple interest.
