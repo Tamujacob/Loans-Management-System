@@ -166,7 +166,7 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e67e22", fg="white", padx=10, 
                   command=self.reject_loan).pack(side=tk.LEFT, padx=5)
         
-        # UPDATED DELETE BUTTON (Soft Delete / Recycle Bin Logic)
+        #Soft Delete / Recycle Bin Logic
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
         
