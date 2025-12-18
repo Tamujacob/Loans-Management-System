@@ -6,12 +6,11 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 
 ### Core Functionality
 - **🔐 User Authentication**: Secure login system with password hashing (bcrypt)
-- **👥 Customer Management**: Create, view, update, and delete customer profiles
 - **💰 Loan Management**: Comprehensive loan lifecycle management
 - **💳 Payment Tracking**: Record payments and track outstanding balances
 - **📊 Interest Calculation**: Automatic interest calculation based on terms
 - **🔍 Search & Filter**: Advanced search capabilities across loans and customers
-- **📈 Reports Generation**: Generate detailed reports and summaries
+- 
 
 ### Technical Features
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security
