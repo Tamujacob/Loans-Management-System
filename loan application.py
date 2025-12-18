@@ -3,15 +3,14 @@ from tkinter import ttk, messagebox
 import database
 import datetime
 import uuid
-import subprocess   # <-- REQUIRED for opening dashboard.py
-
+import subprocess
+import sys
 
 # -------------------------------------------------------
 # GLOBAL VARIABLES (Initialized after window creation)
 # -------------------------------------------------------
 repayment_method_var = None
 terms_var = None
-
 
 # -------------------------------------------------------
 # HELPER FUNCTION: Calculate Return Amount
@@ -22,7 +21,10 @@ def calculate_return_amount():
     Annual interest rate = 12%
     """
     try:
-        loan_amount = float(amount_entry.get())
+        val = amount_entry.get()
+        if not val:
+            return 0
+        loan_amount = float(val)
         duration_text = duration_combo.get()
 
         # Extract years from duration text
@@ -35,24 +37,26 @@ def calculate_return_amount():
             return 0
 
         ANNUAL_INTEREST = 0.12  # 12%
-
         interest = loan_amount * ANNUAL_INTEREST * years
         total_amount = loan_amount + interest
 
         return round(total_amount, 2)
-
     except Exception:
         return 0
 
-
 # -------------------------------------------------------
-# NAVIGATION: Return to Dashboard
+# NAVIGATION: Window Transitions
 # -------------------------------------------------------
 def return_to_dashboard():
     """Closes loan application page and opens dashboard.py"""
     window.destroy()
-    subprocess.Popen(["python", "dashboard.py"])
+    subprocess.Popen([sys.executable, "dashboard.py"])
 
+def open_loan_management():
+    """Closes loan application page and opens loan management.py"""
+    window.destroy()
+    # CORRECTED FILENAME: loan management.py
+    subprocess.Popen([sys.executable, "loan management.py"])
 
 # -------------------------------------------------------
 # CORE: Submit Loan Application
@@ -112,14 +116,14 @@ def submit_application():
         result = database.db['loans'].insert_one(loan_data)
 
         if result.inserted_id:
-            messagebox.showinfo("Success", f"Loan Application Submitted!\nLoan ID: {loan_data['loan_id']}")
-            clear_form()
+            messagebox.showinfo("Success", "Loan Application Submitted! Opening Management Dashboard.")
+            # REDIRECT to the corrected filename
+            open_loan_management() 
         else:
             messagebox.showerror("Error", "Failed to save application.")
 
     except Exception as e:
         messagebox.showerror("System Error", f"Unexpected error: {e}")
-
 
 # -------------------------------------------------------
 # CLEAR FORM
@@ -135,7 +139,6 @@ def clear_form():
     collateral_entry.delete(0, END)
     update_return_amount()
 
-
 # -------------------------------------------------------
 # UPDATE RETURN AMOUNT LIVE
 # -------------------------------------------------------
@@ -146,13 +149,12 @@ def update_return_amount(event=None):
     return_amount_entry.insert(0, f"{total:,.2f}")
     return_amount_entry.config(state="readonly")
 
-
 # =======================================================
 # GUI START
 # =======================================================
 window = Tk()
 window.title("Apply For A Loan")
-window.geometry("800x600")
+window.geometry("800x650")
 window.configure(bg="#e1ffc9")
 
 # Initialize variables AFTER creating window
@@ -230,12 +232,12 @@ submit_btn = Button(btn_frame, text="Submit Application", bg="#28a745", fg="whit
 submit_btn.grid(row=0, column=0, padx=10)
 
 clear_btn = Button(btn_frame, text="Clear", bg="#dc3545", fg="white",
-                   font=("Arial", 12, "bold"), width=10, command=clear_form)
+                    font=("Arial", 12, "bold"), width=10, command=clear_form)
 clear_btn.grid(row=0, column=1, padx=10)
 
-dashboard_btn = Button(btn_frame, text="Return to Dashboard",
+dashboard_btn = Button(btn_frame, text="Return Home",
                        bg="#007bff", fg="white", font=("Arial", 12, "bold"),
-                       width=20, command=return_to_dashboard)
+                       width=15, command=return_to_dashboard)
 dashboard_btn.grid(row=0, column=2, padx=10)
 
 # =======================================================
