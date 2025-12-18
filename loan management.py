@@ -12,18 +12,14 @@ except ImportError:
     LoanDetailsViewer = None 
 
 # --- MAIN APPLICATION CLASS ---
-
 class LoanApp(tk.Tk):
     """Main application window managing different screens/frames."""
     def __init__(self):
         super().__init__()
         self.title("Unified Loan Management System")
-        
-        # INCREASED WINDOW SIZE
         self.geometry("1100x700") 
         self.config(bg="#ecf0f1")
         
-        # --- Database Check ---
         if not hasattr(database, 'db') or database.db is None:
             messagebox.showerror("Initialization Error", 
                                  "Database connection failed. Please check 'database.py'. Exiting.")
@@ -36,7 +32,6 @@ class LoanApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        
         for F in (DashboardFrame,):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
@@ -46,14 +41,12 @@ class LoanApp(tk.Tk):
         self.show_frame("DashboardFrame")
 
     def show_frame(self, page_name):
-        """Show a frame for the given page name"""
         frame = self.frames[page_name]
         frame.tkraise()
         if page_name == "DashboardFrame":
             frame.filter_loans(None)
 
     def open_loan_application(self):
-        """Opens the external loan application.py file."""
         try:
             loan_app_file = "loan application.py" 
             if not os.path.exists(loan_app_file):
@@ -63,21 +56,18 @@ class LoanApp(tk.Tk):
                     messagebox.showerror("File Not Found", f"Could not find '{loan_app_file}'")
                     return
                 loan_app_file = found_file
-            
             subprocess.Popen([sys.executable, loan_app_file])
-            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
     def back_to_dashboard_file(self):
-        """Launches dashboard.py and closes the current window."""
         try:
             target_file = "dashboard.py"
             if os.path.exists(target_file):
                 subprocess.Popen([sys.executable, target_file])
-                self.destroy() # Kills the current loans management window
+                self.destroy() 
             else:
-                messagebox.showerror("Error", "dashboard.py not found in the directory.")
+                messagebox.showerror("Error", "dashboard.py not found.")
         except Exception as e:
             messagebox.showerror("Navigation Error", f"Failed to return to dashboard: {e}")
 
@@ -92,13 +82,12 @@ class DashboardFrame(tk.Frame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # --- 1. SIDEBAR FRAME ---
+        # --- SIDEBAR ---
         sidebar = tk.Frame(self, bg="#34495e", width=220, padx=15, pady=10)
         sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew") 
 
         tk.Label(sidebar, text="Loan Management", font=("Arial", 14, "bold"), bg="#34495e", fg="white").pack(pady=(10, 20))
 
-        # NEW NAVIGATION BUTTON
         tk.Button(sidebar, text="← Return to Dashboard", font=("Arial", 10, "bold"),
                   bg="#3498db", fg="white", width=20, height=2,
                   command=controller.back_to_dashboard_file).pack(pady=(0, 20))
@@ -113,17 +102,15 @@ class DashboardFrame(tk.Frame):
         self.search_entry.pack(pady=5)
         tk.Button(sidebar, text="Run Search", font=("Arial", 10, "bold"), bg="#95a5a6", fg="white", width=20, command=self.search_loans).pack(pady=(0, 15))
 
-        # Status Filter Buttons
+        # Status Filters
         tk.Label(sidebar, text="FILTER BY STATUS", font=("Arial", 9, "bold"), bg="#34495e", fg="#bdc3c7").pack(pady=(15, 5))
-
         tk.Button(sidebar, text="All Loans", font=("Arial", 10), bg="#ecf0f1", width=20, command=lambda: self.filter_loans(None)).pack(pady=3)
         tk.Button(sidebar, text="Pending/New", font=("Arial", 10), bg="#f1c40f", width=20, command=lambda: self.filter_loans("Pending")).pack(pady=3)
         tk.Button(sidebar, text="Under Payment", font=("Arial", 10), bg="#3498db", fg="white", width=20, command=lambda: self.filter_loans("Active")).pack(pady=3)
         tk.Button(sidebar, text="Fully Paid", font=("Arial", 10), bg="#2ecc71", fg="white", width=20, command=lambda: self.filter_loans("Closed")).pack(pady=3)
         tk.Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#e74c3c", fg="white", width=20, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
 
-
-        # --- 2. MAIN HEADER ---
+        # --- MAIN HEADER ---
         header_frame = tk.Frame(self, bg="white", padx=20, pady=15)
         header_frame.grid(row=0, column=1, sticky="ew")
 
@@ -131,8 +118,7 @@ class DashboardFrame(tk.Frame):
         self.current_status_label = tk.Label(header_frame, text="Displaying: All Loans", font=("Arial", 12), bg="white", fg="#7f8c8d")
         self.current_status_label.pack(side=tk.RIGHT)
 
-
-        # --- 3. TREEVIEW (Adjusted widths for bigger window) ---
+        # --- TREEVIEW ---
         main_content_frame = tk.Frame(self, bg="#ecf0f1")
         main_content_frame.grid(row=1, column=1, sticky="nsew", padx=20, pady=5)
         main_content_frame.grid_columnconfigure(0, weight=1)
@@ -141,20 +127,13 @@ class DashboardFrame(tk.Frame):
         columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment')
         self.tree = ttk.Treeview(main_content_frame, columns=columns, show='headings')
 
-        self.tree.heading('#id', text='ID')
-        self.tree.heading('customer_name', text='Customer Full Name')
-        self.tree.heading('loan_amount', text='Loan Amount')
-        self.tree.heading('duration', text='Term Duration')
-        self.tree.heading('status', text='Status')
-        self.tree.heading('next_payment', text='Due Date')
+        self.tree.heading('#id', text='ID'); self.tree.heading('customer_name', text='Customer Full Name')
+        self.tree.heading('loan_amount', text='Loan Amount'); self.tree.heading('duration', text='Term Duration')
+        self.tree.heading('status', text='Status'); self.tree.heading('next_payment', text='Due Date')
 
-        # WIDTHS ADJUSTED FOR 1100px WINDOW
-        self.tree.column('#id', width=60, anchor='center')
-        self.tree.column('customer_name', width=250)
-        self.tree.column('loan_amount', width=120, anchor='e')
-        self.tree.column('duration', width=100, anchor='center')
-        self.tree.column('status', width=120, anchor='center')
-        self.tree.column('next_payment', width=150, anchor='center')
+        self.tree.column('#id', width=60, anchor='center'); self.tree.column('customer_name', width=250)
+        self.tree.column('loan_amount', width=120, anchor='e'); self.tree.column('duration', width=100, anchor='center')
+        self.tree.column('status', width=120, anchor='center'); self.tree.column('next_payment', width=150, anchor='center')
 
         self.tree.tag_configure('pending', background='#fcf8e3', foreground='#8a6d3b')
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f')
@@ -164,21 +143,24 @@ class DashboardFrame(tk.Frame):
 
         scrollbar = ttk.Scrollbar(main_content_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        
         self.tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # --- 4. ACTION BUTTONS ---
+        # --- ACTION BUTTONS ---
         action_frame = tk.Frame(self, bg="#ecf0f1", padx=20, pady=15)
         action_frame.grid(row=2, column=1, sticky="ew")
 
         tk.Button(action_frame, text="🔍 View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=10, 
                   command=self.view_loan_details).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(action_frame, text="✅ Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=10, command=self.approve_loan).pack(side=tk.LEFT, padx=5)
-        tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e74c3c", fg="white", padx=10, command=self.reject_loan).pack(side=tk.LEFT, padx=5)
-        tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10),
-                  bg="#9b59b6", fg="white", padx=10, command=self.record_repayment).pack(side=tk.LEFT, padx=5)
+        tk.Button(action_frame, text="✅ Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=10, 
+                  command=self.approve_loan).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e74c3c", fg="white", padx=10, 
+                  command=self.reject_loan).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
+                  command=self.record_repayment).pack(side=tk.LEFT, padx=5)
         
         tk.Button(action_frame, text="📥 Export CSV", font=("Arial", 10), bg="#95a5a6", fg="white", padx=10).pack(side=tk.RIGHT, padx=5)
 
@@ -195,6 +177,65 @@ class DashboardFrame(tk.Frame):
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to fetch data: {e}")
             return None
+
+    # --- UPDATED LOGIC METHODS ---
+
+    def approve_loan(self):
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
+        
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
+        
+        current_status = loan_data.get('status', 'Pending')
+
+        # Check if already processed
+        if current_status in ["Approved", "Under Payment", "Active"]:
+            messagebox.showinfo("Status Check", f"This loan is already {current_status}.")
+            return
+        
+        if current_status == "Fully Paid":
+            messagebox.showwarning("Action Denied", "This loan is already completed and closed.")
+            return
+
+        try:
+            database.update_loan_status(loan_id, "Approved")
+            messagebox.showinfo("Success", "Loan has been Approved.")
+            self.filter_loans(None)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to approve: {str(e)}")
+
+    def reject_loan(self):
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
+        
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
+        
+        current_status = loan_data.get('status', 'Pending')
+
+        # BLOCK REJECTION IF ALREADY APPROVED OR ACTIVE
+        if current_status in ["Approved", "Under Payment", "Active", "Fully Paid"]:
+            messagebox.showerror("Action Denied", 
+                                f"Cannot reject a loan that is currently '{current_status}'.\n"
+                                "Only 'Pending' loans can be rejected.")
+            return
+        
+        if current_status == "Rejected":
+            messagebox.showinfo("Status Check", "This loan is already rejected.")
+            return
+
+        # Double check with user
+        confirm = messagebox.askyesno("Confirm Rejection", "Are you sure you want to reject this loan?")
+        if confirm:
+            try:
+                database.update_loan_status(loan_id, "Rejected")
+                messagebox.showinfo("Success", "Loan Application Rejected.")
+                self.filter_loans(None)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to reject: {str(e)}")
+
+    # --- END UPDATED LOGIC ---
 
     def view_loan_details(self):
         full_loan_id = self._get_selected_loan_full_id()
@@ -266,26 +307,6 @@ class DashboardFrame(tk.Frame):
             if search_term in loan.get("customer_name", "").lower() or search_term in loan.get("status", "").lower()
         ]
         self.update_treeview(filtered_loans)
-
-    def approve_loan(self):
-        loan_id = self._get_selected_loan_full_id()
-        if not loan_id: return
-        try:
-            database.update_loan_status(loan_id, "Approved")
-            messagebox.showinfo("Success", "Loan Approved")
-            self.filter_loans(None)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def reject_loan(self):
-        loan_id = self._get_selected_loan_full_id()
-        if not loan_id: return
-        try:
-            database.update_loan_status(loan_id, "Rejected")
-            messagebox.showinfo("Success", "Loan Rejected")
-            self.filter_loans(None)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
 
     def record_repayment(self):
         loan_id = self._get_selected_loan_full_id()
