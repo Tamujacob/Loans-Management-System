@@ -10,7 +10,7 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 - **💳 Payment Tracking**: Record payments and track outstanding balances
 - **📊 Interest Calculation**: Automatic interest calculation based on terms
 - **🔍 Search & Filter**: Advanced search capabilities across loans and customers
-- 
+- **♻️ Recycle bin**: For keeping deleted loans 
 
 ### Technical Features
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security
