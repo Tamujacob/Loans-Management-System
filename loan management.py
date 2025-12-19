@@ -195,7 +195,6 @@ class DashboardFrame(tk.Frame):
             return None
 
     def calculate_due_date(self, duration_str):
-        """Parses duration string and returns formatted due date."""
         if relativedelta is None:
             messagebox.showerror("Missing Dependency", "Please run: pip install python-dateutil")
             return "To be set"
@@ -385,12 +384,31 @@ class DashboardFrame(tk.Frame):
         self.update_treeview(filtered_loans)
 
     def record_repayment(self):
+        """Logic updated to block Pending and Rejected loans."""
         loan_id = self._get_selected_loan_full_id()
         if not loan_id: return
+        
         loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
+
+        # Check for soft-deleted status
         if loan_data.get("is_deleted"):
             messagebox.showwarning("Denied", "Cannot record payment for a deleted loan.")
             return
+
+        # --- NEW RESTRICTION LOGIC ---
+        status = loan_data.get('status', 'Pending')
+        if status == "Pending":
+            messagebox.showwarning("Action Blocked", 
+                                   "This loan is still 'Pending'. You must approve the loan before recording repayments.")
+            return
+        
+        if status == "Rejected":
+            messagebox.showerror("Action Blocked", 
+                                 "This loan application was 'Rejected'. Repayments cannot be recorded for rejected loans.")
+            return
+        # -----------------------------
+
         try:
             from repayment import RepaymentWindow
             RepaymentWindow(self, loan_data, self.filter_loans)
