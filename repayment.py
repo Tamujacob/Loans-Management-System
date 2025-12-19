@@ -13,8 +13,8 @@ class RepaymentWindow(tk.Toplevel):
         self.go_back_callback = go_back_callback 
         
         self.title(f"Repayment Management - {self.loan_data['customer_name']}")
-        self.geometry("900x650")
-        self.config(bg="#f8f9fa") # Light professional background
+        self.geometry("1000x700") # Slightly wider to accommodate new field
+        self.config(bg="#f8f9fa") 
         
         # Define Colors
         self.colors = {
@@ -46,11 +46,9 @@ class RepaymentWindow(tk.Toplevel):
         style = ttk.Style()
         style.theme_use('clam')
         
-        # LabelFrame styling
         style.configure("TLabelframe", background="#f8f9fa", bordercolor="#dcdde1")
         style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"), foreground=self.colors["primary"])
         
-        # Treeview styling
         style.configure("Treeview", font=("Segoe UI", 10), rowheight=25)
         style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#dcdde1")
         style.map("Treeview", background=[('selected', self.colors["accent"])])
@@ -64,14 +62,12 @@ class RepaymentWindow(tk.Toplevel):
         
         data = self.loan_data
         
-        # Column 1
         tk.Label(summary_frame, text="Customer Name", bg="white", fg="#7f8c8d").grid(row=0, column=0, sticky="w")
         tk.Label(summary_frame, text=data['customer_name'], bg="white", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, sticky="w", pady=(0,10))
         
         tk.Label(summary_frame, text="Total Loan Amount", bg="white", fg="#7f8c8d").grid(row=2, column=0, sticky="w")
         tk.Label(summary_frame, text=f"RWF {data['loan_amount']:,.2f}", bg="white", font=("Segoe UI", 12, "bold"), fg=self.colors["primary"]).grid(row=3, column=0, sticky="w")
 
-        # Column 2 (Financial Stats)
         stats_frame = tk.Frame(summary_frame, bg="#f1f2f6", padx=10, pady=10)
         stats_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
         
@@ -92,31 +88,40 @@ class RepaymentWindow(tk.Toplevel):
         
         # Amount Entry
         tk.Label(form_frame, text="Amount (RWF)", bg="white", font=("Segoe UI", 9)).grid(row=0, column=0, sticky="w")
-        self.amount_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=15, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
-        self.amount_entry.grid(row=1, column=0, padx=(0,15), pady=5)
+        self.amount_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=12, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
+        self.amount_entry.grid(row=1, column=0, padx=(0,10), pady=5)
         
         # Date Entry
         tk.Label(form_frame, text="Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=1, sticky="w")
-        self.date_entry = DateEntry(form_frame, width=14, background=self.colors["accent"], 
+        self.date_entry = DateEntry(form_frame, width=12, background=self.colors["accent"], 
                                      foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        self.date_entry.grid(row=1, column=1, padx=(0,15), pady=5)
+        self.date_entry.grid(row=1, column=1, padx=(0,10), pady=5)
+        
+        # Next Payment Date Entry (NEW)
+        tk.Label(form_frame, text="Next Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
+        self.next_payment_date_entry = DateEntry(form_frame, width=12, background=self.colors["primary"], 
+                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+        # Set default next date to 1 month from now
+        next_month = datetime.date.today() + datetime.timedelta(days=30)
+        self.next_payment_date_entry.set_date(next_month)
+        self.next_payment_date_entry.grid(row=1, column=2, padx=(0,10), pady=5)
         
         # Method Entry
-        tk.Label(form_frame, text="Payment Method", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
+        tk.Label(form_frame, text="Payment Method", bg="white", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w")
         self.method_var = tk.StringVar(value='Bank Transfer')
         self.method_combo = ttk.Combobox(form_frame, textvariable=self.method_var, 
-                                         values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=15, state='readonly')
-        self.method_combo.grid(row=1, column=2, padx=(0,15), pady=5)
+                                         values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=12, state='readonly')
+        self.method_combo.grid(row=1, column=3, padx=(0,10), pady=5)
 
         # Staff Name
-        tk.Label(form_frame, text="Received By", bg="white", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w")
-        self.received_by_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=15, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
-        self.received_by_entry.grid(row=1, column=3, pady=5)
+        tk.Label(form_frame, text="Received By", bg="white", font=("Segoe UI", 9)).grid(row=0, column=4, sticky="w")
+        self.received_by_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=12, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
+        self.received_by_entry.grid(row=1, column=4, pady=5)
 
         # Submit Button
         btn_submit = tk.Button(form_frame, text="CONFIRM PAYMENT", bg=self.colors["accent"], fg="white", 
-                              font=("Segoe UI", 10, "bold"), relief="flat", padx=20, command=self.record_payment, cursor="hand2")
-        btn_submit.grid(row=0, column=4, rowspan=2, padx=(20, 0), sticky="ns")
+                              font=("Segoe UI", 9, "bold"), relief="flat", padx=15, command=self.record_payment, cursor="hand2")
+        btn_submit.grid(row=0, column=5, rowspan=2, padx=(15, 0), sticky="ns")
 
     def create_payment_view(self):
         view_frame = tk.Frame(self, bg=self.colors["bg"])
@@ -180,7 +185,6 @@ class RepaymentWindow(tk.Toplevel):
         self.total_paid_var.set(f"RWF {total_paid:,.2f}")
         self.remaining_var.set(f"RWF {remaining:,.2f}")
         
-        # Logic for status update
         new_status = self.loan_data.get('status', 'Approved')
         if remaining <= 0.01:
             new_status = "Fully Paid" 
@@ -205,18 +209,27 @@ class RepaymentWindow(tk.Toplevel):
             messagebox.showerror("Validation Error", "Please enter who received the payment.")
             return
 
+        next_payment_date = self.next_payment_date_entry.get()
+
         payment_data = {
             'loan_id': self.loan_id,
             'customer_name': self.loan_data['customer_name'],
             'payment_amount': amount,
             'payment_date': self.date_entry.get(),
+            'next_payment_date': next_payment_date, # Added to payment record
             'payment_method': self.method_var.get(),
             'received_by': received_by,
             'recorded_date': datetime.datetime.now()
         }
         
         if database.save_payment(payment_data):
-            messagebox.showinfo("Success", "Payment recorded successfully.")
+            # Update the loan's overall "next_payment" field in the database
+            database.db['loans'].update_one(
+                {"_id": self.loan_id},
+                {"$set": {"next_payment": next_payment_date}}
+            )
+            
+            messagebox.showinfo("Success", f"Payment recorded. Next payment scheduled for {next_payment_date}.")
             self.amount_entry.delete(0, tk.END)
             self.load_payments()
             self.go_back_callback()
