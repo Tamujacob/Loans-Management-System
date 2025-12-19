@@ -154,6 +154,9 @@ class DashboardFrame(tk.Frame):
         self.tree.tag_configure('rejected', background='#fdecea', foreground='#d32f2f')
         self.tree.tag_configure('deleted', background='#f2f2f2', foreground='#95a5a6')
 
+        # BIND SELECTION EVENT
+        self.tree.bind("<<TreeviewSelect>>", self.on_loan_select)
+
         scrollbar = ttk.Scrollbar(main_content_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -175,10 +178,28 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
         
-        tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
-                  command=self.record_repayment).pack(side=tk.LEFT, padx=5)
+        # DEFINED AS ATTRIBUTE TO ALLOW DISABLING
+        self.btn_repayment = tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
+                  command=self.record_repayment)
+        self.btn_repayment.pack(side=tk.LEFT, padx=5)
         
         tk.Button(action_frame, text="📥 Export CSV", font=("Arial", 10), bg="#95a5a6", fg="white", padx=10).pack(side=tk.RIGHT, padx=5)
+
+    def on_loan_select(self, event):
+        """Disables the repayment button if loan is Pending or Rejected."""
+        selected_id = self.tree.focus()
+        if not selected_id:
+            return
+            
+        loan_data = database.get_loan_by_id(selected_id)
+        if loan_data:
+            status = loan_data.get("status", "Pending")
+            is_deleted = loan_data.get("is_deleted", False)
+            
+            if status in ["Pending", "Rejected"] or is_deleted:
+                self.btn_repayment.config(state=tk.DISABLED, bg="#bdc3c7")
+            else:
+                self.btn_repayment.config(state=tk.NORMAL, bg="#9b59b6")
 
     def _get_selected_loan_full_id(self):
         selected_item_iid = self.tree.focus()
@@ -384,30 +405,17 @@ class DashboardFrame(tk.Frame):
         self.update_treeview(filtered_loans)
 
     def record_repayment(self):
-        """Logic updated to block Pending and Rejected loans."""
         loan_id = self._get_selected_loan_full_id()
         if not loan_id: return
-        
         loan_data = self._get_loan_data_from_db(loan_id)
-        if not loan_data: return
-
-        # Check for soft-deleted status
         if loan_data.get("is_deleted"):
             messagebox.showwarning("Denied", "Cannot record payment for a deleted loan.")
             return
 
-        # --- NEW RESTRICTION LOGIC ---
         status = loan_data.get('status', 'Pending')
-        if status == "Pending":
-            messagebox.showwarning("Action Blocked", 
-                                   "This loan is still 'Pending'. You must approve the loan before recording repayments.")
+        if status in ["Pending", "Rejected"]:
+            messagebox.showwarning("Action Blocked", "You cannot record repayments for Pending or Rejected loans.")
             return
-        
-        if status == "Rejected":
-            messagebox.showerror("Action Blocked", 
-                                 "This loan application was 'Rejected'. Repayments cannot be recorded for rejected loans.")
-            return
-        # -----------------------------
 
         try:
             from repayment import RepaymentWindow
