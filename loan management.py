@@ -4,8 +4,15 @@ import database  # Import your MongoDB connection file
 import subprocess
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson.objectid import ObjectId
+
+# --- SAFE IMPORT FOR DATEUTIL ---
+try:
+    from dateutil.relativedelta import relativedelta
+except ImportError:
+    # If not installed, we provide a fallback or alert the user
+    relativedelta = None
 
 # --- IMPORT NECESSARY EXTERNAL WINDOWS ---
 try:
@@ -112,7 +119,6 @@ class DashboardFrame(tk.Frame):
         tk.Button(sidebar, text="Fully Paid", font=("Arial", 10), bg="#2ecc71", fg="white", width=20, command=lambda: self.filter_loans("Closed")).pack(pady=3)
         tk.Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#e74c3c", fg="white", width=20, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
         
-        # RECYCLE BIN BUTTON IN SIDEBAR
         tk.Button(sidebar, text="♻️ Recycle Bin", font=("Arial", 10, "italic"), bg="#7f8c8d", fg="white", width=20, command=lambda: self.filter_loans("Recycle")).pack(pady=(20, 3))
 
         # --- MAIN HEADER ---
@@ -166,7 +172,6 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e67e22", fg="white", padx=10, 
                   command=self.reject_loan).pack(side=tk.LEFT, padx=5)
         
-        #Soft Delete / Recycle Bin Logic
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
         
@@ -189,63 +194,35 @@ class DashboardFrame(tk.Frame):
             messagebox.showerror("Database Error", f"Failed to fetch data: {e}")
             return None
 
-    # --- UPDATED LOGIC METHODS ---
-
-    def fetch_loans(self, status_filter=None):
-        try:
-            # Handle Recycle Bin View vs Normal View
-            if status_filter == "Recycle":
-                query = {"is_deleted": True}
-            else:
-                query = {"is_deleted": {"$ne": True}} # Standard: Only show active records
-
-            if status_filter and status_filter != "Recycle":
-                if status_filter == "Active":
-                    query["status"] = {"$in": ["Under Payment", "Approved"]}
-                elif status_filter == "Closed":
-                    query["status"] = "Fully Paid"
-                else:
-                    query["status"] = status_filter
+    def calculate_due_date(self, duration_str):
+        """Parses duration string and returns formatted due date."""
+        if relativedelta is None:
+            messagebox.showerror("Missing Dependency", "Please run: pip install python-dateutil")
+            return "To be set"
             
-            loans = database.db['loans'].find(query)
-            return list(loans)
-        except Exception as e:
-            messagebox.showerror("Database Error", f"Retrieval failed: {e}")
-            return []
+        try:
+            now = datetime.now()
+            d_parts = duration_str.lower().split()
+            if len(d_parts) < 2:
+                return "To be set"
+            
+            value = int(d_parts[0])
+            unit = d_parts[1]
 
-    def delete_loan(self):
-        """Moves record to bin if active, or restores if already in bin."""
-        loan_id = self._get_selected_loan_full_id()
-        if not loan_id: return
-        
-        loan_data = self._get_loan_data_from_db(loan_id)
-        if not loan_data: return
-        
-        is_already_deleted = loan_data.get("is_deleted", False)
-        customer_name = loan_data.get('customer_name', 'Unknown')
-
-        if is_already_deleted:
-            # RESTORE LOGIC
-            confirm = messagebox.askyesno("Restore Loan", f"Restore loan for '{customer_name}' to active list?")
-            if confirm:
-                database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": False}})
-                messagebox.showinfo("Restored", "Loan record has been restored.")
-                self.filter_loans("Recycle")
-        else:
-            # SOFT DELETE LOGIC
-            confirm = messagebox.askyesno("Recycle Bin", f"Move loan for '{customer_name}' to the Recycle Bin?")
-            if confirm:
-                try:
-                    database.db['loans'].update_one(
-                        {"_id": ObjectId(loan_id)}, 
-                        {"$set": {"is_deleted": True, "deleted_at": datetime.now()}}
-                    )
-                    messagebox.showinfo("Recycled", "Loan moved to Recycle Bin.")
-                    self.filter_loans(None)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to recycle: {str(e)}")
-
-    # --- EXISTING RE-USED LOGIC ---
+            if "year" in unit:
+                due_date = now + relativedelta(years=value)
+            elif "month" in unit:
+                due_date = now + relativedelta(months=value)
+            elif "week" in unit:
+                due_date = now + relativedelta(weeks=value)
+            elif "day" in unit:
+                due_date = now + relativedelta(days=value)
+            else:
+                return "To be set"
+            
+            return due_date.strftime("%Y-%m-%d")
+        except Exception:
+            return "To be set"
 
     def approve_loan(self):
         loan_id = self._get_selected_loan_full_id()
@@ -262,12 +239,69 @@ class DashboardFrame(tk.Frame):
             messagebox.showinfo("Status Check", f"This loan is already {current_status}.")
             return
         
+        duration = loan_data.get('duration', '0 months')
+        generated_due_date = self.calculate_due_date(duration)
+
         try:
             database.update_loan_status(loan_id, "Approved")
-            messagebox.showinfo("Success", "Loan has been Approved.")
+            database.db['loans'].update_one(
+                {"_id": ObjectId(loan_id)},
+                {"$set": {"next_payment": generated_due_date, "approval_date": datetime.now()}}
+            )
+
+            messagebox.showinfo("Success", f"Loan Approved! Due date set to: {generated_due_date}")
             self.filter_loans(None)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to approve: {str(e)}")
+
+    def fetch_loans(self, status_filter=None):
+        try:
+            if status_filter == "Recycle":
+                query = {"is_deleted": True}
+            else:
+                query = {"is_deleted": {"$ne": True}}
+
+            if status_filter and status_filter != "Recycle":
+                if status_filter == "Active":
+                    query["status"] = {"$in": ["Under Payment", "Approved"]}
+                elif status_filter == "Closed":
+                    query["status"] = "Fully Paid"
+                else:
+                    query["status"] = status_filter
+            
+            loans = database.db['loans'].find(query)
+            return list(loans)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Retrieval failed: {e}")
+            return []
+
+    def delete_loan(self):
+        loan_id = self._get_selected_loan_full_id()
+        if not loan_id: return
+        loan_data = self._get_loan_data_from_db(loan_id)
+        if not loan_data: return
+        
+        is_already_deleted = loan_data.get("is_deleted", False)
+        customer_name = loan_data.get('customer_name', 'Unknown')
+
+        if is_already_deleted:
+            confirm = messagebox.askyesno("Restore Loan", f"Restore loan for '{customer_name}' to active list?")
+            if confirm:
+                database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": False}})
+                messagebox.showinfo("Restored", "Loan record has been restored.")
+                self.filter_loans("Recycle")
+        else:
+            confirm = messagebox.askyesno("Recycle Bin", f"Move loan for '{customer_name}' to the Recycle Bin?")
+            if confirm:
+                try:
+                    database.db['loans'].update_one(
+                        {"_id": ObjectId(loan_id)}, 
+                        {"$set": {"is_deleted": True, "deleted_at": datetime.now()}}
+                    )
+                    messagebox.showinfo("Recycled", "Loan moved to Recycle Bin.")
+                    self.filter_loans(None)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to recycle: {str(e)}")
 
     def reject_loan(self):
         loan_id = self._get_selected_loan_full_id()
@@ -331,7 +365,6 @@ class DashboardFrame(tk.Frame):
                 status,
                 loan.get('next_payment', 'N/A')
             )
-            # Tag logic: if deleted, use gray
             tag = 'deleted' if loan.get('is_deleted') else status.replace(" ", "").lower()
             self.tree.insert('', tk.END, iid=full_loan_id, values=data, tags=(tag,))
 
