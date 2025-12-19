@@ -13,7 +13,7 @@ class RepaymentWindow(tk.Toplevel):
         self.go_back_callback = go_back_callback 
         
         self.title(f"Repayment Management - {self.loan_data['customer_name']}")
-        self.geometry("1000x700") # Slightly wider to accommodate new field
+        self.geometry("1100x750") 
         self.config(bg="#f8f9fa") 
         
         # Define Colors
@@ -86,40 +86,34 @@ class RepaymentWindow(tk.Toplevel):
                                    bg="white", fg=self.colors["accent"], padx=15, pady=15, relief="flat", highlightthickness=1, highlightbackground="#dcdde1")
         form_frame.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
         
-        # Amount Entry
         tk.Label(form_frame, text="Amount (RWF)", bg="white", font=("Segoe UI", 9)).grid(row=0, column=0, sticky="w")
         self.amount_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=12, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
         self.amount_entry.grid(row=1, column=0, padx=(0,10), pady=5)
         
-        # Date Entry
         tk.Label(form_frame, text="Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=1, sticky="w")
         self.date_entry = DateEntry(form_frame, width=12, background=self.colors["accent"], 
                                      foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.date_entry.grid(row=1, column=1, padx=(0,10), pady=5)
         
-        # Next Payment Date Entry (NEW)
         tk.Label(form_frame, text="Next Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
         self.next_payment_date_entry = DateEntry(form_frame, width=12, background=self.colors["primary"], 
                                                  foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        # Set default next date to 1 month from now
         next_month = datetime.date.today() + datetime.timedelta(days=30)
         self.next_payment_date_entry.set_date(next_month)
         self.next_payment_date_entry.grid(row=1, column=2, padx=(0,10), pady=5)
         
-        # Method Entry
         tk.Label(form_frame, text="Payment Method", bg="white", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w")
         self.method_var = tk.StringVar(value='Bank Transfer')
         self.method_combo = ttk.Combobox(form_frame, textvariable=self.method_var, 
                                          values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=12, state='readonly')
         self.method_combo.grid(row=1, column=3, padx=(0,10), pady=5)
 
-        # Staff Name
         tk.Label(form_frame, text="Received By", bg="white", font=("Segoe UI", 9)).grid(row=0, column=4, sticky="w")
         self.received_by_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=12, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
         self.received_by_entry.grid(row=1, column=4, pady=5)
 
-        # Submit Button
-        btn_submit = tk.Button(form_frame, text="CONFIRM PAYMENT", bg=self.colors["accent"], fg="white", 
+        # Confirm Button
+        btn_submit = tk.Button(form_frame, text="CONFIRM PAYMENT", bg=self.colors["success"], fg="white", 
                               font=("Segoe UI", 9, "bold"), relief="flat", padx=15, command=self.record_payment, cursor="hand2")
         btn_submit.grid(row=0, column=5, rowspan=2, padx=(15, 0), sticky="ns")
 
@@ -158,6 +152,10 @@ class RepaymentWindow(tk.Toplevel):
         
         tk.Button(action_frame, text="← Return to Loan Management", font=("Segoe UI", 10), bg="#95a5a6", fg="white", 
                   relief="flat", padx=15, command=self._handle_go_back, cursor="hand2").pack(side="left")
+        
+        # Receipt Button
+        tk.Button(action_frame, text="🖨️ Print Receipt for Selected", font=("Segoe UI", 10, "bold"), bg=self.colors["accent"], fg="white", 
+                  relief="flat", padx=20, command=self.generate_receipt, cursor="hand2").pack(side="right")
 
     def load_payments(self):
         for item in self.payments_tree.get_children():
@@ -166,7 +164,7 @@ class RepaymentWindow(tk.Toplevel):
         payment_list = database.get_payments_by_loan(self.loan_id)
         total_paid = database.get_total_paid_for_loan(self.loan_id)
         
-        for i, payment in enumerate(payment_list):
+        for payment in payment_list:
             recorded_date = payment.get('recorded_date', 'N/A')
             if isinstance(recorded_date, datetime.datetime):
                 recorded_date = recorded_date.strftime("%Y-%m-%d %H:%M")
@@ -181,7 +179,6 @@ class RepaymentWindow(tk.Toplevel):
             
         loan_amount = float(self.loan_data['loan_amount'])
         remaining = loan_amount - total_paid
-        
         self.total_paid_var.set(f"RWF {total_paid:,.2f}")
         self.remaining_var.set(f"RWF {remaining:,.2f}")
         
@@ -210,31 +207,79 @@ class RepaymentWindow(tk.Toplevel):
             return
 
         next_payment_date = self.next_payment_date_entry.get()
+        payment_date = self.date_entry.get()
 
         payment_data = {
             'loan_id': self.loan_id,
             'customer_name': self.loan_data['customer_name'],
             'payment_amount': amount,
-            'payment_date': self.date_entry.get(),
-            'next_payment_date': next_payment_date, # Added to payment record
+            'payment_date': payment_date,
+            'next_payment_date': next_payment_date,
             'payment_method': self.method_var.get(),
             'received_by': received_by,
             'recorded_date': datetime.datetime.now()
         }
         
         if database.save_payment(payment_data):
-            # Update the loan's overall "next_payment" field in the database
             database.db['loans'].update_one(
                 {"_id": self.loan_id},
                 {"$set": {"next_payment": next_payment_date}}
             )
-            
-            messagebox.showinfo("Success", f"Payment recorded. Next payment scheduled for {next_payment_date}.")
+            messagebox.showinfo("Success", "Payment recorded successfully.")
             self.amount_entry.delete(0, tk.END)
             self.load_payments()
             self.go_back_callback()
         else:
             messagebox.showerror("Error", "Failed to save payment.")
+
+    def generate_receipt(self):
+        selected = self.payments_tree.focus()
+        if not selected:
+            messagebox.showwarning("Selection Required", "Please select a payment from the history to print a receipt.")
+            return
+
+        values = self.payments_tree.item(selected)['values']
+        
+        # Create Receipt Window
+        receipt_win = tk.Toplevel(self)
+        receipt_win.title("Payment Receipt")
+        receipt_win.geometry("400x550")
+        receipt_win.config(bg="white")
+        
+        receipt_text = f"""
+        ===============================
+               OFFICIAL RECEIPT
+        ===============================
+        LOAN MANAGEMENT SYSTEM
+        Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+        -------------------------------
+        CUSTOMER DETAILS:
+        Name: {self.loan_data['customer_name']}
+        Loan ID: {str(self.loan_id)[-8:]}
+        
+        PAYMENT DETAILS:
+        Date Paid: {values[0]}
+        Amount: RWF {values[1]}
+        Method: {values[2]}
+        Received By: {values[3]}
+        
+        LOAN STATUS:
+        Total Paid: {self.total_paid_var.get()}
+        Balance: {self.remaining_var.get()}
+        -------------------------------
+        NEXT DUE DATE: {self.loan_data.get('next_payment', 'N/A')}
+        
+        Thank you for your payment!
+        ===============================
+        """
+        
+        text_widget = tk.Text(receipt_win, font=("Courier", 10), padx=20, pady=20, relief="flat")
+        text_widget.insert(tk.END, receipt_text)
+        text_widget.config(state=tk.DISABLED)
+        text_widget.pack(expand=True, fill="both")
+        
+        tk.Button(receipt_win, text="PRINT", bg=self.colors["primary"], fg="white", 
+                  command=lambda: messagebox.showinfo("Printer", "Sending to printer...")).pack(pady=10)
 
     def _handle_go_back(self):
         self.go_back_callback()
