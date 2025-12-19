@@ -62,10 +62,8 @@ btn_style = {
     "bd": 3
 }
 
-# --- CONNECTED BUTTONS ---
 
 # Loan Application Button
-# NOTE: The file name has a space, so it must be enclosed in quotes in os.system
 loan_application = Button(frame, text="Loan Application", bg="#007BFF", fg="white", **btn_style, command=open_loan_application)
 loan_application.grid(row=0, column=0, pady=10)
 
