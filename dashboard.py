@@ -46,7 +46,7 @@ window.geometry("1000x650")
 window.configure(bg="#f0f0f0")
 
 # Title Label (Styled)
-title_label = Label(window, text="LOANS MANAGEMENT SYSTEM", font=("Algerian", 30, "bold"), fg="white", bg="#2c264a", padx=20, pady=10)
+title_label = Label(window, text="BIG ON GOLD LOANS MANAGEMENT SYSTEM", font=("Algerian", 30, "bold"), fg="white", bg="#2c264a", padx=20, pady=10)
 title_label.pack(fill="x")
 
 # Main Frame (Holds Buttons)
