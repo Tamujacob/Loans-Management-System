@@ -14,7 +14,7 @@ except ImportError:
     # If not installed, we provide a fallback or alert the user
     relativedelta = None
 
-# --- IMPORT NECESSARY EXTERNAL WINDOWS ---
+# --- IMPORT EXTERNAL WINDOWS ---
 try:
     from view_loan_details import ViewLoanDetailsPage as LoanDetailsViewer 
 except ImportError:
@@ -81,7 +81,7 @@ class LoanApp(tk.Tk):
             messagebox.showerror("Navigation Error", f"Failed to return to dashboard: {e}")
 
 
-# --- SCREEN 1: LOAN MANAGEMENT DASHBOARD ---
+# LOAN MANAGEMENT DASHBOARD ---
 class DashboardFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)

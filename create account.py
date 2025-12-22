@@ -24,9 +24,9 @@ def create_account():
     elif password != confirm_password:
         messagebox.showerror("Error", "Passwords do not match.")
     else:
-        # --- MISSING CODE: MongoDB Integration and Hashing ---
         
-        # 1. Hash the password
+        
+        #  Hash the password
         try:
             password_bytes = password.encode('utf-8')
             salt = bcrypt.gensalt()
@@ -65,10 +65,8 @@ def create_account():
              # This handles MongoDB connection errors or bcrypt errors
             messagebox.showerror("Database Error", f"An error occurred while saving: {e}")
         
-        # --- END OF MISSING CODE ---
-
-
-# --- GUI Setup (Your Existing Code) ---
+    
+# --- GUI Setup ---
 window = tk.Tk()
 window.title("Secure Account Creation")
 window.geometry("1000x650")
