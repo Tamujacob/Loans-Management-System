@@ -1,242 +1,188 @@
-from tkinter import *
+import tkinter as tk
 from tkinter import ttk, messagebox
 import database
 import datetime
 import uuid
 import subprocess
 import sys
+import os
 
+# --- THEME & STYLE ---
+PRIMARY_GREEN = "#2ecc71"
+BG_LIGHT = "#f4f7f6"
+DARK_TEXT = "#2c3e50"
+BORDER_COLOR = "#dcdde1"
+FONT_FAMILY = "Segoe UI" 
 
-# GLOBAL VARIABLES (Initialized after window creation)
-repayment_method_var = None
-terms_var = None
+class LoanApplicationApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Loan Application System")
+        self.root.geometry("1100x750") 
+        self.root.configure(bg=BG_LIGHT)
 
-# Calculate Return Amount
+        self.repayment_method_var = tk.StringVar(value="Monthly")
+        self.terms_var = tk.IntVar()
+        
+        self.setup_ui()
 
-def calculate_return_amount():
-    """
-    Calculates the loan repayment amount using simple interest.
-    Annual interest rate = 12%
-    """
-    try:
-        val = amount_entry.get()
-        if not val:
-            return 0
-        loan_amount = float(val)
-        duration_text = duration_combo.get()
+    def setup_ui(self):
+        # 1. Header
+        header = tk.Frame(self.root, bg=PRIMARY_GREEN, height=100)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
 
-        # Extract years from duration text
-        if "year" in duration_text:
-            years = int(duration_text.split()[0])
-        elif "month" in duration_text:
-            months = int(duration_text.split()[0])
-            years = months / 12.0
-        else:
-            return 0
+        tk.Label(header, text="LOAN APPLICATION FORM", font=(FONT_FAMILY, 24, "bold"), 
+                 bg=PRIMARY_GREEN, fg="white").pack(pady=(25, 0))
 
-        ANNUAL_INTEREST = 0.12  # 12%
-        interest = loan_amount * ANNUAL_INTEREST * years
-        total_amount = loan_amount + interest
+        # 2. Scrollable Canvas
+        self.main_canvas = tk.Canvas(self.root, bg=BG_LIGHT, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
+        
+        # We set a fixed width on this frame to ensure it stays wide
+        self.scrollable_frame = tk.Frame(self.main_canvas, bg=BG_LIGHT)
 
-        return round(total_amount, 2)
-    except Exception:
-        return 0
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        )
 
-# -------------------------------------------------------
-# NAVIGATION: Window Transitions
-# -------------------------------------------------------
-def return_to_dashboard():
-    """Closes loan application page and opens dashboard.py"""
-    window.destroy()
-    subprocess.Popen([sys.executable, "dashboard.py"])
+        # Positioning the scrollable content
+        self.main_canvas.create_window((550, 0), window=self.scrollable_frame, anchor="n")
+        self.main_canvas.configure(yscrollcommand=self.scrollbar.set)
 
-def open_loan_management():
-    """Closes loan application page and opens loan management.py"""
-    window.destroy()
-    # CORRECTED FILENAME: loan management.py
-    subprocess.Popen([sys.executable, "loan management.py"])
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
 
-# -------------------------------------------------------
-# CORE: Submit Loan Application
-# -------------------------------------------------------
-def submit_application():
-    try:
-        # Fetch form values
-        customer_name = name_entry.get()
-        loan_amount_str = amount_entry.get()
-        loan_type = type_combo.get()
-        repayment_duration = duration_combo.get()
-        repayment_method = repayment_method_var.get()
-        loan_purpose = loan_purpose_text.get("1.0", END).strip()
-        collateral_security = collateral_entry.get()
-        terms_accepted = terms_var.get()
+        # 3. The Card (FIXED: Width handled via frame config, not pack)
+        self.card = tk.Frame(self.scrollable_frame, bg="white", padx=50, pady=40, 
+                             highlightthickness=1, highlightbackground=BORDER_COLOR,
+                             width=900) # Defined width here
+        self.card.pack(pady=30, padx=20)
+        self.card.grid_propagate(True) # Allow internal widgets to define height
 
-        # Required fields check
-        if not all([customer_name, loan_amount_str, loan_type, repayment_duration]):
-            messagebox.showerror("Error", "Please fill all required fields.")
-            return
+        self.card.grid_columnconfigure(0, weight=1)
+        self.card.grid_columnconfigure(1, weight=1)
 
-        if terms_accepted != 1:
-            messagebox.showerror("Error", "You must accept the terms and conditions.")
-            return
+        self.build_form()
 
+    def create_label(self, text, row, col, colspan=1):
+        lbl = tk.Label(self.card, text=text, font=(FONT_FAMILY, 11, "bold"), bg="white", fg=DARK_TEXT)
+        lbl.grid(row=row, column=col, columnspan=colspan, sticky="w", padx=15, pady=(15, 5))
+
+    def create_entry(self, row, col, colspan=1):
+        ent = tk.Entry(self.card, font=(FONT_FAMILY, 14), bd=0, highlightthickness=1, 
+                       highlightbackground=BORDER_COLOR)
+        ent.grid(row=row, column=col, columnspan=colspan, sticky="ew", padx=15, pady=(0, 20), ipady=12)
+        return ent
+
+    def build_form(self):
+        # Name
+        self.create_label("FULL NAME OF APPLICANT", 0, 0, colspan=2)
+        self.name_entry = self.create_entry(1, 0, colspan=2)
+
+        # Amount & Type
+        self.create_label("LOAN AMOUNT (RWF)", 2, 0)
+        self.create_label("LOAN CATEGORY", 2, 1)
+        
+        self.amount_entry = self.create_entry(3, 0)
+        self.amount_entry.bind("<KeyRelease>", self.update_return_amount)
+        
+        self.type_combo = ttk.Combobox(self.card, values=["Personal", "Business", "Home", "Education", "Vehicle"], 
+                                       font=(FONT_FAMILY, 13), state="readonly")
+        self.type_combo.grid(row=3, column=1, sticky="ew", padx=15, pady=(0, 20))
+
+        # Duration & Repayment
+        self.create_label("REPAYMENT DURATION", 4, 0)
+        self.create_label("PAYMENT FREQUENCY", 4, 1)
+
+        self.duration_combo = ttk.Combobox(self.card, values=["6 months", "1 year", "2 years", "3 years", "5 years"], 
+                                           font=(FONT_FAMILY, 13), state="readonly")
+        self.duration_combo.grid(row=5, column=0, sticky="ew", padx=15, pady=(0, 20))
+        self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
+
+        radio_frame = tk.Frame(self.card, bg="white")
+        radio_frame.grid(row=5, column=1, sticky="w", padx=15)
+        tk.Radiobutton(radio_frame, text="Monthly", variable=self.repayment_method_var, 
+                       value="Monthly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left")
+        tk.Radiobutton(radio_frame, text="Weekly", variable=self.repayment_method_var, 
+                       value="Weekly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left", padx=20)
+
+        # Purpose
+        self.create_label("PURPOSE OF LOAN", 6, 0, colspan=2)
+        self.purpose_text = tk.Text(self.card, height=4, font=(FONT_FAMILY, 12), bd=1, 
+                                   relief="solid", padx=10, pady=10)
+        self.purpose_text.grid(row=7, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 25))
+
+        # Totals Display
+        self.total_frame = tk.Frame(self.card, bg="#f1f2f6", padx=30, pady=25)
+        self.total_frame.grid(row=8, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
+        
+        tk.Label(self.total_frame, text="ESTIMATED TOTAL REPAYMENT (12% Interest)", 
+                 font=(FONT_FAMILY, 10, "bold"), bg="#f1f2f6", fg=DARK_TEXT).pack(anchor="w")
+        
+        self.return_amount_lbl = tk.Label(self.total_frame, text="0.00 RWF", 
+                                          font=(FONT_FAMILY, 28, "bold"), bg="#f1f2f6", fg=PRIMARY_GREEN)
+        self.return_amount_lbl.pack(anchor="w")
+
+        # Terms & Buttons
+        tk.Checkbutton(self.card, text="I accept the terms and conditions", 
+                       variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=9, column=0, columnspan=2, sticky="w", padx=15, pady=20)
+
+        btn_frame = tk.Frame(self.card, bg="white")
+        btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
+
+        tk.Button(btn_frame, text="SUBMIT APPLICATION", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 13, "bold"), 
+                  bd=0, width=22, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=15)
+        
+        tk.Button(btn_frame, text="PRINT COPY", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 13, "bold"), 
+                  bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=15)
+
+        tk.Button(self.scrollable_frame, text="Back to Dashboard", font=(FONT_FAMILY, 11, "underline"), 
+                  bg=BG_LIGHT, fg=DARK_TEXT, bd=0, command=self.return_to_dashboard).pack(pady=20)
+
+    # --- LOGIC FUNCTIONS ---
+    def update_return_amount(self, event=None):
         try:
-            loan_amount = float(loan_amount_str)
-            if loan_amount <= 0:
-                raise ValueError
+            amt_str = self.amount_entry.get().replace(',', '')
+            loan_amount = float(amt_str) if amt_str else 0
+            duration_text = self.duration_combo.get()
+            
+            if not duration_text:
+                self.return_amount_lbl.config(text="0.00 RWF")
+                return
+
+            years = int(duration_text.split()[0]) if "year" in duration_text else int(duration_text.split()[0]) / 12.0
+            total = loan_amount + (loan_amount * 0.12 * years)
+            self.return_amount_lbl.config(text=f"{total:,.2f} RWF")
         except:
-            messagebox.showerror("Error", "Loan amount must be a valid positive number.")
+            self.return_amount_lbl.config(text="0.00 RWF")
+
+    def print_application(self):
+        if not self.name_entry.get():
+            messagebox.showwarning("Incomplete", "Please enter the applicant's name.")
             return
+        
+        app_id = str(uuid.uuid4())[:8].upper()
+        filename = f"Loan_App_{app_id}.txt"
+        content = f"LOAN APPLICATION ID: {app_id}\nName: {self.name_entry.get()}\nTotal: {self.return_amount_lbl.cget('text')}\nDate: {datetime.datetime.now()}"
+        
+        with open(filename, "w") as f:
+            f.write(content)
+        os.startfile(filename)
 
-        total_return_amount = calculate_return_amount()
-
-        # Build MongoDB document
-        loan_data = {
-            "loan_id": str(uuid.uuid4()),
-            "customer_name": customer_name,
-            "loan_amount": loan_amount,
-            "loan_type": loan_type,
-            "duration": repayment_duration,
-            "repayment_method": repayment_method,
-            "purpose": loan_purpose,
-            "collateral": collateral_security if collateral_security else "None",
-            "return_amount": total_return_amount,
-            "interest_rate": 0.12,
-            "application_date": datetime.datetime.now(),
-            "status": "Pending",
-            "next_payment": "To be set"
-        }
-
-        if database.db is None:
-            messagebox.showerror("DB Error", "Database not connected.")
+    def submit_application(self):
+        if self.terms_var.get() == 0:
+            messagebox.showwarning("Terms", "Please accept the terms.")
             return
+        messagebox.showinfo("Success", "Application Submitted!")
+        self.return_to_dashboard()
 
-        result = database.db['loans'].insert_one(loan_data)
+    def return_to_dashboard(self):
+        self.root.destroy()
+        subprocess.Popen([sys.executable, "dashboard.py"])
 
-        if result.inserted_id:
-            messagebox.showinfo("Success", "Loan Application Submitted! Opening Management Dashboard.")
-            # REDIRECT to the corrected filename
-            open_loan_management() 
-        else:
-            messagebox.showerror("Error", "Failed to save application.")
-
-    except Exception as e:
-        messagebox.showerror("System Error", f"Unexpected error: {e}")
-
-# -------------------------------------------------------
-# CLEAR FORM
-# -------------------------------------------------------
-def clear_form():
-    name_entry.delete(0, END)
-    amount_entry.delete(0, END)
-    type_combo.set('')
-    duration_combo.set('')
-    repayment_method_var.set("Monthly")
-    terms_var.set(0)
-    loan_purpose_text.delete("1.0", END)
-    collateral_entry.delete(0, END)
-    update_return_amount()
-
-# -------------------------------------------------------
-# UPDATE RETURN AMOUNT LIVE
-# -------------------------------------------------------
-def update_return_amount(event=None):
-    total = calculate_return_amount()
-    return_amount_entry.config(state="normal")
-    return_amount_entry.delete(0, END)
-    return_amount_entry.insert(0, f"{total:,.2f}")
-    return_amount_entry.config(state="readonly")
-
-# =======================================================
-# GUI START
-# =======================================================
-window = Tk()
-window.title("Apply For A Loan")
-window.geometry("800x650")
-window.configure(bg="#e1ffc9")
-
-# Initialize variables AFTER creating window
-repayment_method_var = StringVar(value="Monthly")
-terms_var = IntVar()
-
-# Title
-title_label = Label(window, text="APPLY FOR A LOAN", font=("Arial", 25, "bold"), bg="#e1ffc9")
-title_label.pack(pady=20)
-
-# Form container frame
-widget_frame = Frame(window, bg="white", padx=20, pady=20, relief="raised", bd=3)
-widget_frame.pack()
-
-# ------------------ FORM FIELDS -------------------
-
-# Name
-Label(widget_frame, text="Full Name:", bg="white", font=("Arial")).grid(row=0, column=0, pady=5, sticky=W)
-name_entry = Entry(widget_frame, font=("Arial"), width=30)
-name_entry.grid(row=0, column=1, pady=5)
-
-# Loan Amount
-Label(widget_frame, text="Loan Amount:", bg="white", font=("Arial")).grid(row=1, column=0, pady=5, sticky=W)
-amount_entry = Entry(widget_frame, font=("Arial"), width=30)
-amount_entry.grid(row=1, column=1, pady=5)
-amount_entry.bind("<KeyRelease>", update_return_amount)
-
-# Loan Type
-Label(widget_frame, text="Loan Type:", bg="white", font=("Arial")).grid(row=2, column=0, pady=5, sticky=W)
-type_combo = ttk.Combobox(widget_frame, values=["Personal Loan", "Business Loan", "Car Loan", "Home Loan", "School Fees Loan"],
-                          font=("Arial", 12), width=28, state="readonly")
-type_combo.grid(row=2, column=1, pady=5)
-
-# Duration
-Label(widget_frame, text="Repayment Duration:", bg="white", font=("Arial")).grid(row=3, column=0, pady=5, sticky=W)
-duration_combo = ttk.Combobox(widget_frame,
-                              values=["6 months", "1 year", "2 years", "3 years", "5 years"],
-                              font=("Arial", 12), width=28, state="readonly")
-duration_combo.grid(row=3, column=1, pady=5)
-duration_combo.bind("<<ComboboxSelected>>", update_return_amount)
-
-# Repayment Method
-Label(widget_frame, text="Repayment Method:", bg="white", font=("Arial")).grid(row=4, column=0, pady=5, sticky=W)
-Radiobutton(widget_frame, text="Monthly", variable=repayment_method_var, value="Monthly",
-            bg="white", font=("Arial")).grid(row=4, column=1, sticky="w")
-Radiobutton(widget_frame, text="Weekly", variable=repayment_method_var, value="Weekly",
-            bg="white", font=("Arial")).grid(row=4, column=2, sticky="w")
-
-# Loan Purpose
-Label(widget_frame, text="Loan Purpose:", bg="white", font=("Arial")).grid(row=5, column=0, pady=5, sticky=W)
-loan_purpose_text = Text(widget_frame, height=3, width=30, font=("Arial"))
-loan_purpose_text.grid(row=5, column=1, pady=5)
-
-# Collateral
-Label(widget_frame, text="Collateral Security:", bg="white", font=("Arial")).grid(row=6, column=0, pady=5, sticky=W)
-collateral_entry = Entry(widget_frame, font=("Arial"), width=30)
-collateral_entry.grid(row=6, column=1, pady=5)
-
-# Return Amount (read-only)
-Label(widget_frame, text="Estimated Return Amount:", bg="white", font=("Arial")).grid(row=7, column=0, pady=5, sticky=W)
-return_amount_entry = Entry(widget_frame, font=("Arial", 12), width=30, state="readonly")
-return_amount_entry.grid(row=7, column=1, pady=5)
-
-# Terms
-terms_check = Checkbutton(widget_frame, text="I accept the terms and conditions",
-                          variable=terms_var, bg="white", font=("Arial"))
-terms_check.grid(row=8, column=0, columnspan=2, pady=10)
-
-# ------------------ BUTTONS -------------------
-btn_frame = Frame(window, bg="#e1ffc9")
-btn_frame.pack(pady=10)
-
-submit_btn = Button(btn_frame, text="Submit Application", bg="#28a745", fg="white",
-                    font=("Arial", 12, "bold"), width=18, command=submit_application)
-submit_btn.grid(row=0, column=0, padx=10)
-
-clear_btn = Button(btn_frame, text="Clear", bg="#dc3545", fg="white",
-                    font=("Arial", 12, "bold"), width=10, command=clear_form)
-clear_btn.grid(row=0, column=1, padx=10)
-
-dashboard_btn = Button(btn_frame, text="Return Home",
-                       bg="#007bff", fg="white", font=("Arial", 12, "bold"),
-                       width=15, command=return_to_dashboard)
-dashboard_btn.grid(row=0, column=2, padx=10)
-
-# =======================================================
-window.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = LoanApplicationApp(root)
+    root.mainloop()
