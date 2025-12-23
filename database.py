@@ -44,11 +44,6 @@ def initialize_collections():
                     print(f"Collection '{name}' created.")
 
             # 2. Create Indexes for performance
-            # Note: create_index is idempotent (safe to call multiple times)
-
-            # CRITICAL FIX: The _id index is created automatically and is always unique.
-            # Calling create_index([("_id", 1)], unique=True) causes the error.
-            # The line has been REMOVED.
             
             db['loans'].create_index([("customer_name", 1)])
             db['loans'].create_index([("status", 1)])
