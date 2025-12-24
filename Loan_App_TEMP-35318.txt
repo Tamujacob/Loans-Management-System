@@ -1,6 +1,0 @@
-LOAN APPLICATION ID: TEMP-35318
-Name: freya
-Total: 106,000.00 RWF
-Date: 2025-12-24 22:06:08.699998
-
-Signature: __________________

@@ -57,6 +57,14 @@ window.geometry("900x550")
 window.resizable(False, False)
 window.configure(bg="white")
 
+# --- SET WINDOW TITLE BAR ICON ---
+try:
+    # This replaces the default Tkinter leaf with your 'bu logo.png'
+    title_icon = PhotoImage(file="bu logo.png")
+    window.iconphoto(True, title_icon)
+except Exception as e:
+    print(f"Title bar icon could not be loaded: {e}")
+
 # Theme Colors
 PRIMARY_GREEN = "#2ecc71"  # Modern Light Green
 DARK_TEXT = "#2c3e50"
