@@ -11,6 +11,7 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 - **📊 Interest Calculation**: Automatic interest calculation based on terms
 - **🔍 Search & Filter**: Advanced search capabilities across loans and customers
 - **♻️ Recycle bin**: For keeping deleted loans 
+- ** Prints receipt for loan repayments**
 
 ### Technical Features
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security

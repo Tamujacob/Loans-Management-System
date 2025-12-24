@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import database  # Assumes database.py connects to MongoDB
+from docx import Document  # Required for Word Document generation
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+import database 
 import datetime
 import uuid
 import subprocess
@@ -111,7 +114,7 @@ class LoanApplicationApp:
         btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
 
         tk.Button(btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 13, "bold"), bd=0, width=22, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=15)
-        tk.Button(btn_frame, text="PRINT COPY", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 13, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=15)
+        tk.Button(btn_frame, text="PRINT WORD DOC", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 13, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=15)
 
         tk.Button(self.scrollable_frame, text="Back to Dashboard", font=(FONT_FAMILY, 11, "underline"), bg=BG_LIGHT, fg=DARK_TEXT, bd=0, command=self.return_to_dashboard).pack(pady=20)
 
@@ -129,7 +132,6 @@ class LoanApplicationApp:
             return 0
 
     def submit_application(self):
-        # 1. Validation
         if not self.name_entry.get() or not self.amount_entry.get():
             messagebox.showerror("Error", "Please fill in all required fields.")
             return
@@ -141,7 +143,6 @@ class LoanApplicationApp:
             return
 
         try:
-            # 2. Prepare Data
             loan_id = str(uuid.uuid4())[:8].upper()
             loan_data = {
                 "loan_id": loan_id,
@@ -156,12 +157,10 @@ class LoanApplicationApp:
                 "application_date": datetime.datetime.now()
             }
 
-            # 3. Insert into MongoDB
             database.db['loans'].insert_one(loan_data)
             messagebox.showinfo("Success", f"Application {loan_id} saved to Database!")
             
-            # 4. Ask to Print
-            if messagebox.askyesno("Print", "Would you like to print a copy for signing?"):
+            if messagebox.askyesno("Print", "Would you like to generate a Word Document for signing?"):
                 self.print_application(custom_id=loan_id)
             
             self.return_to_dashboard()
@@ -170,11 +169,57 @@ class LoanApplicationApp:
             messagebox.showerror("System Error", f"Failed to save: {e}")
 
     def print_application(self, custom_id=None):
-        app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
-        filename = f"Loan_App_{app_id}.txt"
-        content = f"LOAN APPLICATION ID: {app_id}\nName: {self.name_entry.get()}\nTotal: {self.return_amount_lbl.cget('text')}\nDate: {datetime.datetime.now()}\n\nSignature: __________________"
-        with open(filename, "w") as f: f.write(content)
-        os.startfile(filename)
+        """Generates a professional Word Document instead of Notepad"""
+        try:
+            app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
+            doc = Document()
+            
+            # Header
+            title = doc.add_heading('OFFICIAL LOAN APPLICATION FORM', 0)
+            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            # Application Info Table
+            doc.add_heading('Application Details', level=1)
+            table = doc.add_table(rows=1, cols=2)
+            table.style = 'Table Grid'
+            
+            data = [
+                ("Application ID:", app_id),
+                ("Applicant Name:", self.name_entry.get()),
+                ("Date:", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                ("Loan Category:", self.type_combo.get()),
+                ("Loan Amount:", f"{self.amount_entry.get()} RWF"),
+                ("Term Duration:", self.duration_combo.get()),
+                ("Repayment Frequency:", self.repayment_method_var.get()),
+                ("Total Repayment:", self.return_amount_lbl.cget('text'))
+            ]
+            
+            for key, value in data:
+                row_cells = table.add_row().cells
+                row_cells[0].text = key
+                row_cells[1].text = value
+                row_cells[0].paragraphs[0].runs[0].bold = True
+            
+            # Purpose Section
+            doc.add_heading('Purpose of Loan', level=1)
+            purpose = self.purpose_text.get("1.0", tk.END).strip()
+            doc.add_paragraph(purpose if purpose else "No purpose provided.")
+            
+            # Signature Section
+            doc.add_paragraph("\n" * 3)
+            sig_table = doc.add_table(rows=1, cols=2)
+            sig_table.autofit = True
+            sig_cells = sig_table.rows[0].cells
+            sig_cells[0].text = "__________________________\nApplicant Signature"
+            sig_cells[1].text = "__________________________\nAuthorized Officer"
+            
+            # Save and Open
+            filename = f"Loan_App_{app_id}.docx"
+            doc.save(filename)
+            os.startfile(filename)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not generate Word document: {e}")
 
     def return_to_dashboard(self):
         self.root.destroy()

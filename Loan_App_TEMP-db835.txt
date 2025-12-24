@@ -1,0 +1,6 @@
+LOAN APPLICATION ID: TEMP-db835
+Name: freya
+Total: 106,000.00 RWF
+Date: 2025-12-24 22:02:56.837927
+
+Signature: __________________
