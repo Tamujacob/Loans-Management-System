@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from docx import Document  # Required for Word Document generation
+from docx import Document 
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import database 
@@ -23,6 +23,13 @@ class LoanApplicationApp:
         self.root.title("Loan Management System - Apply")
         self.root.geometry("1100x750") 
         self.root.configure(bg=BG_LIGHT)
+
+        # --- SET WINDOW TITLE BAR ICON ---
+        try:
+            title_icon = tk.PhotoImage(file="bu logo.png")
+            self.root.iconphoto(True, title_icon)
+        except Exception as e:
+            print(f"Icon could not be loaded: {e}")
 
         self.repayment_method_var = tk.StringVar(value="Monthly")
         self.terms_var = tk.IntVar()
@@ -110,15 +117,21 @@ class LoanApplicationApp:
 
         tk.Checkbutton(self.card, text="I accept the terms and conditions", variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=9, column=0, columnspan=2, sticky="w", padx=15, pady=20)
 
+        # --- BUTTON SECTION ---
         btn_frame = tk.Frame(self.card, bg="white")
         btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
 
-        tk.Button(btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 13, "bold"), bd=0, width=22, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=15)
-        tk.Button(btn_frame, text="PRINT WORD DOC", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 13, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=15)
+        tk.Button(btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
+        
+        tk.Button(btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
 
-        tk.Button(self.scrollable_frame, text="Back to Dashboard", font=(FONT_FAMILY, 11, "underline"), bg=BG_LIGHT, fg=DARK_TEXT, bd=0, command=self.return_to_dashboard).pack(pady=20)
+        tk.Button(btn_frame, text="BACK TO DASHBOARD", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.return_to_dashboard).pack(side="left", padx=10)
 
-    # --- DATABASE & LOGIC ---
+    # --- LOGIC & FUNCTIONS ---
+    def return_to_dashboard(self):
+        self.root.destroy()
+        subprocess.Popen([sys.executable, "dashboard.py"])
+
     def update_return_amount(self, event=None):
         try:
             amt = float(self.amount_entry.get().replace(',', ''))
@@ -136,10 +149,7 @@ class LoanApplicationApp:
             messagebox.showerror("Error", "Please fill in all required fields.")
             return
         if self.terms_var.get() == 0:
-            messagebox.showwarning("Terms", "Please accept the terms and conditions.")
-            return
-        if database.db is None:
-            messagebox.showerror("DB Error", "Not connected to Database.")
+            messagebox.showwarning("Terms", "Please accept the terms.")
             return
 
         try:
@@ -150,35 +160,29 @@ class LoanApplicationApp:
                 "loan_amount": float(self.amount_entry.get().replace(',', '')),
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
-                "repayment_method": self.repayment_method_var.get(),
                 "purpose": self.purpose_text.get("1.0", tk.END).strip(),
                 "return_amount": self.update_return_amount(),
                 "status": "Pending",
                 "application_date": datetime.datetime.now()
             }
-
             database.db['loans'].insert_one(loan_data)
             messagebox.showinfo("Success", f"Application {loan_id} saved to Database!")
             
-            if messagebox.askyesno("Print", "Would you like to generate a Word Document for signing?"):
+            if messagebox.askyesno("Print", "Generate Word Doc for signing?"):
                 self.print_application(custom_id=loan_id)
             
             self.return_to_dashboard()
-
         except Exception as e:
             messagebox.showerror("System Error", f"Failed to save: {e}")
 
     def print_application(self, custom_id=None):
-        """Generates a professional Word Document instead of Notepad"""
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
             doc = Document()
             
-            # Header
-            title = doc.add_heading('OFFICIAL LOAN APPLICATION FORM', 0)
+            title = doc.add_heading('OFFICIAL LOAN APPLICATION', 0)
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
-            # Application Info Table
             doc.add_heading('Application Details', level=1)
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
@@ -186,11 +190,9 @@ class LoanApplicationApp:
             data = [
                 ("Application ID:", app_id),
                 ("Applicant Name:", self.name_entry.get()),
-                ("Date:", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                ("Loan Category:", self.type_combo.get()),
+                ("Date:", datetime.datetime.now().strftime("%Y-%m-%d")),
                 ("Loan Amount:", f"{self.amount_entry.get()} RWF"),
-                ("Term Duration:", self.duration_combo.get()),
-                ("Repayment Frequency:", self.repayment_method_var.get()),
+                ("Loan Category:", self.type_combo.get()),
                 ("Total Repayment:", self.return_amount_lbl.cget('text'))
             ]
             
@@ -198,32 +200,17 @@ class LoanApplicationApp:
                 row_cells = table.add_row().cells
                 row_cells[0].text = key
                 row_cells[1].text = value
-                row_cells[0].paragraphs[0].runs[0].bold = True
             
-            # Purpose Section
             doc.add_heading('Purpose of Loan', level=1)
-            purpose = self.purpose_text.get("1.0", tk.END).strip()
-            doc.add_paragraph(purpose if purpose else "No purpose provided.")
+            doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
             
-            # Signature Section
-            doc.add_paragraph("\n" * 3)
-            sig_table = doc.add_table(rows=1, cols=2)
-            sig_table.autofit = True
-            sig_cells = sig_table.rows[0].cells
-            sig_cells[0].text = "__________________________\nApplicant Signature"
-            sig_cells[1].text = "__________________________\nAuthorized Officer"
+            doc.add_paragraph("\n\nSignature: __________________________")
             
-            # Save and Open
             filename = f"Loan_App_{app_id}.docx"
             doc.save(filename)
             os.startfile(filename)
-            
         except Exception as e:
-            messagebox.showerror("Error", f"Could not generate Word document: {e}")
-
-    def return_to_dashboard(self):
-        self.root.destroy()
-        subprocess.Popen([sys.executable, "dashboard.py"])
+            messagebox.showerror("Print Error", f"Could not generate Word doc: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
