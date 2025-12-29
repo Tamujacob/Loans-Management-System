@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import database  # MongoDB connection
 import subprocess
 import sys
@@ -61,7 +61,6 @@ class LoanApp(tk.Tk):
 
     def open_loan_application(self):
         try:
-            # Fixed path handling for Windows usernames with spaces
             subprocess.Popen([sys.executable, "loan application.py"])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
@@ -98,13 +97,11 @@ class DashboardFrame(tk.Frame):
                   bg="#2ecc71", fg="white", width=20,
                   command=controller.open_loan_application).pack(pady=(5, 10))
 
-        # Search Section
         tk.Label(sidebar, text="SEARCH RECORDS", font=("Arial", 9, "bold"), bg="#34495e", fg="#bdc3c7").pack(pady=(20, 5))
         self.search_entry = tk.Entry(sidebar, font=("Arial", 10), width=22)
         self.search_entry.pack(pady=5)
         tk.Button(sidebar, text="Run Search", font=("Arial", 10, "bold"), bg="#95a5a6", fg="white", width=20, command=self.search_loans).pack(pady=(0, 15))
 
-        # Status Filters
         tk.Label(sidebar, text="FILTER BY STATUS", font=("Arial", 9, "bold"), bg="#34495e", fg="#bdc3c7").pack(pady=(15, 5))
         tk.Button(sidebar, text="All Loans", font=("Arial", 10), bg="#ecf0f1", width=20, command=lambda: self.filter_loans(None)).pack(pady=3)
         tk.Button(sidebar, text="Pending/New", font=("Arial", 10), bg="#f1c40f", width=20, command=lambda: self.filter_loans("Pending")).pack(pady=3)
@@ -139,7 +136,7 @@ class DashboardFrame(tk.Frame):
         self.tree.column('loan_amount', width=120, anchor='e'); self.tree.column('duration', width=100, anchor='center')
         self.tree.column('status', width=120, anchor='center'); self.tree.column('next_payment', width=150, anchor='center')
 
-        # Colors for status
+        # Status Tags
         self.tree.tag_configure('pending', background='#fcf8e3', foreground='#8a6d3b')
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f')
         self.tree.tag_configure('fullypaid', background='#dff0d8', foreground='#3c763d')
@@ -174,11 +171,10 @@ class DashboardFrame(tk.Frame):
                   command=self.record_repayment)
         self.btn_repayment.pack(side=tk.LEFT, padx=5)
         
-        # EXPORT BUTTON
         tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=10,
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
-    # --- EXPORT TO EXCEL WITH DATE FILTERS ---
+    # --- UPDATED EXPORT LOGIC WITH SAVE-AS DIALOG ---
     def open_export_options(self):
         self.export_win = tk.Toplevel(self)
         self.export_win.title("Export Range Selection")
@@ -199,7 +195,7 @@ class DashboardFrame(tk.Frame):
         self.end_date_ent.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self.end_date_ent.pack(pady=5)
 
-        tk.Button(self.export_win, text="GENERATE EXCEL REPORT", bg="#2ecc71", fg="white", 
+        tk.Button(self.export_win, text="SELECT LOCATION & SAVE", bg="#2ecc71", fg="white", 
                   font=("Arial", 11, "bold"), width=25, height=2, bd=0, command=self.process_export).pack(pady=20)
 
     def process_export(self):
@@ -207,13 +203,24 @@ class DashboardFrame(tk.Frame):
             start_dt = datetime.strptime(self.start_date_ent.get(), "%Y-%m-%d")
             end_dt = datetime.strptime(self.end_date_ent.get(), "%Y-%m-%d").replace(hour=23, minute=59)
             
-            # Base Query
+            # 1. Ask user for file location before doing the work
+            default_fn = f"Loan_Report_{self.start_date_ent.get()}_to_{self.end_date_ent.get()}.xlsx"
+            file_path = filedialog.asksaveasfilename(
+                initialfile=default_fn,
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Choose where to save your report"
+            )
+
+            if not file_path: # User clicked cancel
+                return
+
+            # 2. Build Query
             query = {
                 "application_date": {"$gte": start_dt, "$lte": end_dt},
                 "is_deleted": {"$ne": True} if self.current_filter != "Recycle" else True
             }
 
-            # Add Sidebar Status Logic
             if self.current_filter and self.current_filter != "Recycle":
                 if self.current_filter == "Active":
                     query["status"] = {"$in": ["Under Payment", "Approved"]}
@@ -226,7 +233,7 @@ class DashboardFrame(tk.Frame):
                 messagebox.showwarning("No Results", "No loans found for this date range/status.")
                 return
 
-            # Clean for Excel
+            # 3. Process Data
             cleaned = []
             for loan in data:
                 row = loan.copy()
@@ -234,15 +241,14 @@ class DashboardFrame(tk.Frame):
                 cleaned.append(row)
 
             df = pd.DataFrame(cleaned)
-            filename = f"Loan_Report_{self.start_date_ent.get()}_to_{self.end_date_ent.get()}.xlsx"
-            df.to_excel(filename, index=False)
+            df.to_excel(file_path, index=False)
 
             self.export_win.destroy()
-            if messagebox.askyesno("Success", f"Exported {len(cleaned)} records.\nOpen Excel file?"):
-                os.startfile(filename)
+            if messagebox.askyesno("Success", f"Exported {len(cleaned)} records.\nOpen file now?"):
+                os.startfile(file_path)
 
         except ValueError:
-            messagebox.showerror("Error", "Format must be YYYY-MM-DD")
+            messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD")
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
 
@@ -279,10 +285,7 @@ class DashboardFrame(tk.Frame):
         self.filter_loans(self.current_filter)
 
     def fetch_loans(self, status_filter=None):
-        if status_filter == "Recycle":
-            query = {"is_deleted": True}
-        else:
-            query = {"is_deleted": {"$ne": True}}
+        query = {"is_deleted": True} if status_filter == "Recycle" else {"is_deleted": {"$ne": True}}
 
         if status_filter and status_filter != "Recycle":
             if status_filter == "Active":
@@ -316,10 +319,8 @@ class DashboardFrame(tk.Frame):
         loan_id = self.tree.focus()
         if not loan_id: return
         loan_data = database.get_loan_by_id(loan_id)
-        if loan_data.get("is_deleted"):
-            database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": False}})
-        else:
-            database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": True}})
+        new_state = not loan_data.get("is_deleted", False)
+        database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": new_state}})
         self.filter_loans(self.current_filter)
 
     def reject_loan(self):
