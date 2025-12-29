@@ -1,17 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import database  # Import your MongoDB connection file
+import database  # MongoDB connection
 import subprocess
 import sys
 import os
-from datetime import datetime, timedelta
+import pandas as pd # Required: pip install pandas openpyxl
+from datetime import datetime
 from bson.objectid import ObjectId
 
 # --- SAFE IMPORT FOR DATEUTIL ---
 try:
     from dateutil.relativedelta import relativedelta
 except ImportError:
-    # If not installed, we provide a fallback or alert the user
     relativedelta = None
 
 # --- IMPORT EXTERNAL WINDOWS ---
@@ -22,16 +22,20 @@ except ImportError:
 
 # --- MAIN APPLICATION CLASS ---
 class LoanApp(tk.Tk):
-    """Main application window managing different screens/frames."""
     def __init__(self):
         super().__init__()
         self.title("Unified Loan Management System")
         self.geometry("1100x700") 
         self.config(bg="#ecf0f1")
         
+        # Set Window Icon
+        try:
+            self.iconphoto(True, tk.PhotoImage(file="bu logo.png"))
+        except:
+            pass
+
         if not hasattr(database, 'db') or database.db is None:
-            messagebox.showerror("Initialization Error", 
-                                 "Database connection failed. Please check 'database.py'. Exiting.")
+            messagebox.showerror("Initialization Error", "Database connection failed.")
             self.destroy()
             sys.exit()
         
@@ -57,36 +61,25 @@ class LoanApp(tk.Tk):
 
     def open_loan_application(self):
         try:
-            loan_app_file = "loan application.py" 
-            if not os.path.exists(loan_app_file):
-                variations = ["loan_application.py", "loanapplication.py", "LoanApplication.py"]
-                found_file = next((v for v in variations if os.path.exists(v)), None)
-                if not found_file:
-                    messagebox.showerror("File Not Found", f"Could not find '{loan_app_file}'")
-                    return
-                loan_app_file = found_file
-            subprocess.Popen([sys.executable, loan_app_file])
+            # Fixed path handling for Windows usernames with spaces
+            subprocess.Popen([sys.executable, "loan application.py"])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
     def back_to_dashboard_file(self):
         try:
-            target_file = "dashboard.py"
-            if os.path.exists(target_file):
-                subprocess.Popen([sys.executable, target_file])
-                self.destroy() 
-            else:
-                messagebox.showerror("Error", "dashboard.py not found.")
+            subprocess.Popen([sys.executable, "dashboard.py"])
+            self.destroy() 
         except Exception as e:
-            messagebox.showerror("Navigation Error", f"Failed to return to dashboard: {e}")
+            messagebox.showerror("Navigation Error", f"Failed: {e}")
 
-
-# LOAN MANAGEMENT DASHBOARD ---
+# --- LOAN MANAGEMENT DASHBOARD ---
 class DashboardFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         self.config(bg="#ecf0f1")
+        self.current_filter = None 
         
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -154,7 +147,6 @@ class DashboardFrame(tk.Frame):
         self.tree.tag_configure('rejected', background='#fdecea', foreground='#d32f2f')
         self.tree.tag_configure('deleted', background='#f2f2f2', foreground='#95a5a6')
 
-        # BIND SELECTION EVENT
         self.tree.bind("<<TreeviewSelect>>", self.on_loan_select)
 
         scrollbar = ttk.Scrollbar(main_content_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -178,250 +170,185 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
         
-        # DEFINED AS ATTRIBUTE TO ALLOW DISABLING
         self.btn_repayment = tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
                   command=self.record_repayment)
         self.btn_repayment.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(action_frame, text="📥 Export CSV", font=("Arial", 10), bg="#95a5a6", fg="white", padx=10).pack(side=tk.RIGHT, padx=5)
+        # EXPORT BUTTON
+        tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=10,
+                  command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
-    def on_loan_select(self, event):
-        """Disables the repayment button if loan is Pending or Rejected."""
-        selected_id = self.tree.focus()
-        if not selected_id:
-            return
+    # --- EXPORT TO EXCEL WITH DATE FILTERS ---
+    def open_export_options(self):
+        self.export_win = tk.Toplevel(self)
+        self.export_win.title("Export Range Selection")
+        self.export_win.geometry("400x320")
+        self.export_win.configure(bg="white")
+        self.export_win.grab_set()
+
+        tk.Label(self.export_win, text="EXCEL EXPORT", font=("Arial", 14, "bold"), bg="white", fg="#27ae60").pack(pady=10)
+        tk.Label(self.export_win, text=f"Active Filter: {self.current_status_label.cget('text')}", font=("Arial", 9), bg="white").pack()
+
+        tk.Label(self.export_win, text="Start Date (YYYY-MM-DD):", bg="white").pack(pady=(15, 0))
+        self.start_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
+        self.start_date_ent.insert(0, datetime.now().strftime("%Y-01-01"))
+        self.start_date_ent.pack(pady=5)
+
+        tk.Label(self.export_win, text="End Date (YYYY-MM-DD):", bg="white").pack(pady=(5, 0))
+        self.end_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
+        self.end_date_ent.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        self.end_date_ent.pack(pady=5)
+
+        tk.Button(self.export_win, text="GENERATE EXCEL REPORT", bg="#2ecc71", fg="white", 
+                  font=("Arial", 11, "bold"), width=25, height=2, bd=0, command=self.process_export).pack(pady=20)
+
+    def process_export(self):
+        try:
+            start_dt = datetime.strptime(self.start_date_ent.get(), "%Y-%m-%d")
+            end_dt = datetime.strptime(self.end_date_ent.get(), "%Y-%m-%d").replace(hour=23, minute=59)
             
+            # Base Query
+            query = {
+                "application_date": {"$gte": start_dt, "$lte": end_dt},
+                "is_deleted": {"$ne": True} if self.current_filter != "Recycle" else True
+            }
+
+            # Add Sidebar Status Logic
+            if self.current_filter and self.current_filter != "Recycle":
+                if self.current_filter == "Active":
+                    query["status"] = {"$in": ["Under Payment", "Approved"]}
+                else:
+                    query["status"] = self.current_filter
+
+            data = list(database.db['loans'].find(query))
+
+            if not data:
+                messagebox.showwarning("No Results", "No loans found for this date range/status.")
+                return
+
+            # Clean for Excel
+            cleaned = []
+            for loan in data:
+                row = loan.copy()
+                row['_id'] = str(row['_id'])
+                cleaned.append(row)
+
+            df = pd.DataFrame(cleaned)
+            filename = f"Loan_Report_{self.start_date_ent.get()}_to_{self.end_date_ent.get()}.xlsx"
+            df.to_excel(filename, index=False)
+
+            self.export_win.destroy()
+            if messagebox.askyesno("Success", f"Exported {len(cleaned)} records.\nOpen Excel file?"):
+                os.startfile(filename)
+
+        except ValueError:
+            messagebox.showerror("Error", "Format must be YYYY-MM-DD")
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e))
+
+    # --- CORE MANAGEMENT LOGIC ---
+    def on_loan_select(self, event):
+        selected_id = self.tree.focus()
+        if not selected_id: return
         loan_data = database.get_loan_by_id(selected_id)
         if loan_data:
             status = loan_data.get("status", "Pending")
             is_deleted = loan_data.get("is_deleted", False)
-            
             if status in ["Pending", "Rejected"] or is_deleted:
                 self.btn_repayment.config(state=tk.DISABLED, bg="#bdc3c7")
             else:
                 self.btn_repayment.config(state=tk.NORMAL, bg="#9b59b6")
 
-    def _get_selected_loan_full_id(self):
-        selected_item_iid = self.tree.focus()
-        if not selected_item_iid:
-            messagebox.showwarning("Selection Error", "Please select a loan from the list first.")
-            return None
-        return selected_item_iid 
-
-    def _get_loan_data_from_db(self, loan_id):
-        try:
-            return database.get_loan_by_id(loan_id)
-        except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to fetch data: {e}")
-            return None
-
-    def calculate_due_date(self, duration_str):
-        if relativedelta is None:
-            messagebox.showerror("Missing Dependency", "Please run: pip install python-dateutil")
-            return "To be set"
-            
-        try:
-            now = datetime.now()
-            d_parts = duration_str.lower().split()
-            if len(d_parts) < 2:
-                return "To be set"
-            
-            value = int(d_parts[0])
-            unit = d_parts[1]
-
-            if "year" in unit:
-                due_date = now + relativedelta(years=value)
-            elif "month" in unit:
-                due_date = now + relativedelta(months=value)
-            elif "week" in unit:
-                due_date = now + relativedelta(weeks=value)
-            elif "day" in unit:
-                due_date = now + relativedelta(days=value)
-            else:
-                return "To be set"
-            
-            return due_date.strftime("%Y-%m-%d")
-        except Exception:
-            return "To be set"
-
     def approve_loan(self):
-        loan_id = self._get_selected_loan_full_id()
+        loan_id = self.tree.focus()
         if not loan_id: return
-        loan_data = self._get_loan_data_from_db(loan_id)
-        if not loan_data: return
-        
-        if loan_data.get("is_deleted"):
-            messagebox.showwarning("Action Denied", "Cannot approve a deleted loan. Restore it first.")
-            return
-
-        current_status = loan_data.get('status', 'Pending')
-        if current_status in ["Approved", "Under Payment", "Active"]:
-            messagebox.showinfo("Status Check", f"This loan is already {current_status}.")
-            return
+        loan_data = database.get_loan_by_id(loan_id)
+        if loan_data.get("is_deleted"): return
         
         duration = loan_data.get('duration', '0 months')
-        generated_due_date = self.calculate_due_date(duration)
+        due_date = "N/A"
+        if relativedelta:
+            try:
+                val = int(duration.split()[0])
+                due_date = (datetime.now() + relativedelta(months=val)).strftime("%Y-%m-%d")
+            except: pass
 
-        try:
-            database.update_loan_status(loan_id, "Approved")
-            database.db['loans'].update_one(
-                {"_id": ObjectId(loan_id)},
-                {"$set": {"next_payment": generated_due_date, "approval_date": datetime.now()}}
-            )
-
-            messagebox.showinfo("Success", f"Loan Approved! Due date set to: {generated_due_date}")
-            self.filter_loans(None)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to approve: {str(e)}")
+        database.update_loan_status(loan_id, "Approved")
+        database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"next_payment": due_date}})
+        messagebox.showinfo("Success", "Loan Approved")
+        self.filter_loans(self.current_filter)
 
     def fetch_loans(self, status_filter=None):
-        try:
-            if status_filter == "Recycle":
-                query = {"is_deleted": True}
-            else:
-                query = {"is_deleted": {"$ne": True}}
-
-            if status_filter and status_filter != "Recycle":
-                if status_filter == "Active":
-                    query["status"] = {"$in": ["Under Payment", "Approved"]}
-                elif status_filter == "Closed":
-                    query["status"] = "Fully Paid"
-                else:
-                    query["status"] = status_filter
-            
-            loans = database.db['loans'].find(query)
-            return list(loans)
-        except Exception as e:
-            messagebox.showerror("Database Error", f"Retrieval failed: {e}")
-            return []
-
-    def delete_loan(self):
-        loan_id = self._get_selected_loan_full_id()
-        if not loan_id: return
-        loan_data = self._get_loan_data_from_db(loan_id)
-        if not loan_data: return
-        
-        is_already_deleted = loan_data.get("is_deleted", False)
-        customer_name = loan_data.get('customer_name', 'Unknown')
-
-        if is_already_deleted:
-            confirm = messagebox.askyesno("Restore Loan", f"Restore loan for '{customer_name}' to active list?")
-            if confirm:
-                database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": False}})
-                messagebox.showinfo("Restored", "Loan record has been restored.")
-                self.filter_loans("Recycle")
+        if status_filter == "Recycle":
+            query = {"is_deleted": True}
         else:
-            confirm = messagebox.askyesno("Recycle Bin", f"Move loan for '{customer_name}' to the Recycle Bin?")
-            if confirm:
-                try:
-                    database.db['loans'].update_one(
-                        {"_id": ObjectId(loan_id)}, 
-                        {"$set": {"is_deleted": True, "deleted_at": datetime.now()}}
-                    )
-                    messagebox.showinfo("Recycled", "Loan moved to Recycle Bin.")
-                    self.filter_loans(None)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to recycle: {str(e)}")
+            query = {"is_deleted": {"$ne": True}}
 
-    def reject_loan(self):
-        loan_id = self._get_selected_loan_full_id()
-        if not loan_id: return
-        loan_data = self._get_loan_data_from_db(loan_id)
-        if not loan_data: return
+        if status_filter and status_filter != "Recycle":
+            if status_filter == "Active":
+                query["status"] = {"$in": ["Under Payment", "Approved"]}
+            elif status_filter == "Closed":
+                query["status"] = "Fully Paid"
+            else:
+                query["status"] = status_filter
         
-        if loan_data.get("is_deleted"):
-            messagebox.showwarning("Action Denied", "Restore the loan before rejecting.")
-            return
-
-        current_status = loan_data.get('status', 'Pending')
-        if current_status != "Pending":
-            messagebox.showerror("Action Denied", "Only 'Pending' loans can be rejected.")
-            return
-
-        confirm = messagebox.askyesno("Confirm Rejection", "Are you sure you want to reject this loan?")
-        if confirm:
-            try:
-                database.update_loan_status(loan_id, "Rejected")
-                messagebox.showinfo("Success", "Loan Application Rejected.")
-                self.filter_loans(None)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to reject: {str(e)}")
-
-    def view_loan_details(self):
-        full_loan_id = self._get_selected_loan_full_id()
-        if full_loan_id:
-            loan_data = self._get_loan_data_from_db(full_loan_id)
-            if not loan_data: return
-            if LoanDetailsViewer is None:
-                messagebox.showerror("Error", "view_loan_details.py not found.")
-                return
-
-            try:
-                detail_window = tk.Toplevel(self.controller)
-                detail_window.title(f"Loan Record: {loan_data.get('customer_name')}")
-                detail_window.geometry("850x700")
-                detail_window.grab_set() 
-                
-                def close_and_refresh():
-                    detail_window.grab_release()
-                    detail_window.destroy()
-                    self.filter_loans(None) 
-
-                LoanDetailsViewer(detail_window, full_loan_id, close_and_refresh)
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not open details: {e}")
+        return list(database.db['loans'].find(query))
 
     def update_treeview(self, loan_list):
         for i in self.tree.get_children():
             self.tree.delete(i)
         for loan in loan_list:
-            full_loan_id = str(loan.get('_id', 'N/A'))
+            full_id = str(loan.get('_id', ''))
             status = loan.get('status', 'Unknown')
-            data = (
-                full_loan_id[-4:],
-                loan.get('customer_name', 'N/A'),
-                f"RWF {loan.get('loan_amount', 0.00):,.2f}", 
-                loan.get('duration', 'N/A'),
-                status,
-                loan.get('next_payment', 'N/A')
-            )
+            data = (full_id[-4:], loan.get('customer_name', 'N/A'), 
+                    f"RWF {loan.get('loan_amount', 0.00):,.2f}", 
+                    loan.get('duration', 'N/A'), status, loan.get('next_payment', 'N/A'))
             tag = 'deleted' if loan.get('is_deleted') else status.replace(" ", "").lower()
-            self.tree.insert('', tk.END, iid=full_loan_id, values=data, tags=(tag,))
+            self.tree.insert('', tk.END, iid=full_id, values=data, tags=(tag,))
 
     def filter_loans(self, status=None):
+        self.current_filter = status
         loans = self.fetch_loans(status)
         self.update_treeview(loans)
-        status_text = status if status else "All Loans"
-        if status == "Recycle": status_text = "Recycle Bin (Restorable)"
-        self.current_status_label.config(text=f"Displaying: {status_text}")
+        self.current_status_label.config(text=f"Displaying: {status if status else 'All Loans'}")
+
+    def delete_loan(self):
+        loan_id = self.tree.focus()
+        if not loan_id: return
+        loan_data = database.get_loan_by_id(loan_id)
+        if loan_data.get("is_deleted"):
+            database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": False}})
+        else:
+            database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": True}})
+        self.filter_loans(self.current_filter)
+
+    def reject_loan(self):
+        loan_id = self.tree.focus()
+        if not loan_id: return
+        database.update_loan_status(loan_id, "Rejected")
+        self.filter_loans(self.current_filter)
 
     def search_loans(self):
-        search_term = self.search_entry.get().lower()
-        all_loans = self.fetch_loans(None)
-        filtered_loans = [
-            loan for loan in all_loans
-            if search_term in loan.get("customer_name", "").lower() or search_term in loan.get("status", "").lower()
-        ]
-        self.update_treeview(filtered_loans)
+        term = self.search_entry.get().lower()
+        all_l = self.fetch_loans(None)
+        filtered = [l for l in all_l if term in l.get("customer_name", "").lower()]
+        self.update_treeview(filtered)
+
+    def view_loan_details(self):
+        loan_id = self.tree.focus()
+        if loan_id and LoanDetailsViewer:
+            detail_window = tk.Toplevel(self.controller)
+            LoanDetailsViewer(detail_window, loan_id, lambda: [detail_window.destroy(), self.filter_loans(None)])
 
     def record_repayment(self):
-        loan_id = self._get_selected_loan_full_id()
+        loan_id = self.tree.focus()
         if not loan_id: return
-        loan_data = self._get_loan_data_from_db(loan_id)
-        if loan_data.get("is_deleted"):
-            messagebox.showwarning("Denied", "Cannot record payment for a deleted loan.")
-            return
-
-        status = loan_data.get('status', 'Pending')
-        if status in ["Pending", "Rejected"]:
-            messagebox.showwarning("Action Blocked", "You cannot record repayments for Pending or Rejected loans.")
-            return
-
+        loan_data = database.get_loan_by_id(loan_id)
         try:
             from repayment import RepaymentWindow
             RepaymentWindow(self, loan_data, self.filter_loans)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open repayment: {e}")
+            messagebox.showerror("Error", f"Repayment module error: {e}")
 
 if __name__ == "__main__":
     app = LoanApp()
