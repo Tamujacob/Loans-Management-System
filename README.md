@@ -17,7 +17,7 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security
 - **🗄️ MongoDB Integration**: NoSQL database for flexible data storage
 - **📱 Responsive GUI**: User-friendly Tkinter interface
-- **📤 Data Export**: Export to CSV/Excel formats
+- **📤 Data Export**: Excel formats
 - **📊 Real-time Updates**: Live data updates across modules
 
 ## 🏗️ Project Structure
