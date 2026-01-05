@@ -3,134 +3,130 @@ from tkinter import messagebox, ttk
 import database 
 import bcrypt 
 import sys
-import subprocess
 
-# --- Global Functions for Navigation ---
+# --- THEME COLORS ---
+PRIMARY_GREEN = "#2ecc71"
+DARK_GREEN = "#27ae60"
+BG_COLOR = "#f4f7f6"
+WHITE = "#ffffff"
+TEXT_COLOR = "#2c3e50"
+SOFT_GREY = "#dcdde1"
+DANGER_RED = "#e74c3c"
+
 def close_window():
-    """Closes this window to return to the calling management screen."""
     window.destroy()
 
 def create_account():
-    # Get values from the entry fields
-    username = username_entry.get()
+    username = username_entry.get().strip()
     password = password_entry.get()
     confirm_password = confirm_entry.get()
-    role = role_combobox.get() # Get selected role
+    role = role_combobox.get()
     
-    if not username or not password or not confirm_password or not role:
-        messagebox.showerror("Error", "All fields are required.")
-    elif password != confirm_password:
-        messagebox.showerror("Error", "Passwords do not match.")
-    else:
-        # Hash the password
-        try:
-            password_bytes = password.encode('utf-8')
-            salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(password_bytes, salt)
-            
-            user_data = {
-                "username": username,
-                "password_hash": hashed_password.decode('utf-8'),
-                "role": role # Use the selected role from dropdown
-            }
-            
-            # Check for existing user
-            if database.db['users'].find_one({"username": username}):
-                messagebox.showerror("Error", "Username already exists.")
-                return
-
-            # Save to MongoDB
-            result = database.db['users'].insert_one(user_data)
-            
-            if result.inserted_id:
-                messagebox.showinfo("Success", f"Account created for: {username} with role: {role}!")
-                
-                # Clear fields
-                username_entry.delete(0, tk.END)
-                password_entry.delete(0, tk.END)
-                confirm_entry.delete(0, tk.END)
-                
-                # Close window so the Admin sees the updated list in User Management
-                close_window()
-                
-            else:
-                messagebox.showerror("Error", "Failed to save account.")
-
-        except Exception as e:
-            messagebox.showerror("Database Error", f"An error occurred: {e}")
+    if not username or not password or not confirm_password:
+        messagebox.showerror("Error", "Please fill in all fields.")
+        return
         
+    if password != confirm_password:
+        messagebox.showerror("Error", "Passwords do not match.")
+        return
+
+    try:
+        # Check for existing user
+        if database.db['users'].find_one({"username": username}):
+            messagebox.showerror("Error", f"Username '{username}' is already taken.")
+            return
+
+        # Hashing
+        salt = bcrypt.gensalt()
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+        
+        user_data = {
+            "username": username,
+            "password_hash": hashed_password.decode('utf-8'),
+            "role": role
+        }
+        
+        result = database.db['users'].insert_one(user_data)
+        
+        if result.inserted_id:
+            messagebox.showinfo("Success", f"User {username} successfully registered as {role}.")
+            close_window()
+    except Exception as e:
+        messagebox.showerror("Database Error", f"Connection lost: {e}")
+
 # --- GUI Setup ---
 window = tk.Tk()
-window.title("Add New System User")
-window.geometry("1000x700")
-window.configure(bg="#e0f7fa")
+window.title("System User Registration")
+window.geometry("800x750")
+window.configure(bg=BG_COLOR)
 
-# --- Main Content Frame ---
-main_frame = tk.Frame(window, bg="white", padx=40, pady=40, relief=tk.RAISED, bd=2)
-main_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+# Custom Style for Combobox
+style = ttk.Style()
+style.theme_use('clam')
+style.configure("TCombobox", fieldbackground=WHITE, bordercolor=SOFT_GREY, padding=5)
 
-# --- Title ---
-tk.Label(
-    main_frame,
-    text="👤 Register New User",
-    font=("Arial", 24, "bold"),
-    bg="white",
-    fg="#00796b"
-).grid(row=0, column=0, columnspan=2, pady=(0, 30))
+# --- MAIN CARD ---
+card = tk.Frame(window, bg=WHITE, padx=0, pady=0, highlightthickness=1, highlightbackground=SOFT_GREY)
+card.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=450, height=620)
 
-# --- Input Fields ---
+# --- CARD HEADER ---
+header_frame = tk.Frame(card, bg=PRIMARY_GREEN, height=80)
+header_frame.pack(fill="x", side="top")
+header_frame.pack_propagate(False)
 
-# 1. Username
-tk.Label(main_frame, text="Username:", font=("Arial", 12), bg="white").grid(row=1, column=0, sticky="w", pady=(10, 5))
-username_entry = tk.Entry(main_frame, width=40, font=("Arial", 12), bd=1, relief=tk.SOLID)
-username_entry.grid(row=2, column=0, columnspan=2, ipady=5)
+tk.Label(header_frame, text="ADD NEW USER", font=("Segoe UI", 18, "bold"), 
+         bg=PRIMARY_GREEN, fg=WHITE).pack(pady=20)
 
-# 2. Access Level (Role Selection)
-tk.Label(main_frame, text="Access Level:", font=("Arial", 12), bg="white").grid(row=3, column=0, sticky="w", pady=(10, 5))
-role_combobox = ttk.Combobox(main_frame, width=38, font=("Arial", 12), state="readonly")
-role_combobox['values'] = ("Staff", "Admin") # Defining the roles
-role_combobox.set("Staff") # Set default
-role_combobox.grid(row=4, column=0, columnspan=2, ipady=5)
+# --- FORM CONTENT ---
+form_container = tk.Frame(card, bg=WHITE, padx=40, pady=30)
+form_container.pack(fill="both", expand=True)
 
-# 3. Password
-tk.Label(main_frame, text="Password:", font=("Arial", 12), bg="white").grid(row=5, column=0, sticky="w", pady=(10, 5))
-password_entry = tk.Entry(main_frame, width=40, font=("Arial", 12), show="*", bd=1, relief=tk.SOLID)
-password_entry.grid(row=6, column=0, columnspan=2, ipady=5)
+def create_label(text):
+    return tk.Label(form_container, text=text, font=("Segoe UI", 10, "bold"), 
+                    bg=WHITE, fg=TEXT_COLOR)
 
-# 4. Confirm Password
-tk.Label(main_frame, text="Confirm Password:", font=("Arial", 12), bg="white").grid(row=7, column=0, sticky="w", pady=(10, 5))
-confirm_entry = tk.Entry(main_frame, width=40, font=("Arial", 12), show="*", bd=1, relief=tk.SOLID)
-confirm_entry.grid(row=8, column=0, columnspan=2, ipady=5)
+def create_entry(show=None):
+    return tk.Entry(form_container, font=("Segoe UI", 11), bg=BG_COLOR, 
+                    fg=TEXT_COLOR, bd=0, highlightthickness=1, 
+                    highlightbackground=SOFT_GREY, highlightcolor=PRIMARY_GREEN, show=show)
 
-# --- Action Buttons ---
-create_button = tk.Button(
-    main_frame,
-    text="Register User",
-    command=create_account,
-    font=("Arial", 14, "bold"),
-    bg="#4CAF50",
-    fg="white",
-    activebackground="#66BB6A",
-    width=20,
-    cursor="hand2"
+# Username
+create_label("USERNAME").pack(anchor="w", pady=(10, 2))
+username_entry = create_entry()
+username_entry.pack(fill="x", ipady=8, pady=(0, 15))
+
+# Role
+create_label("ACCESS ROLE").pack(anchor="w", pady=(10, 2))
+role_combobox = ttk.Combobox(form_container, font=("Segoe UI", 11), state="readonly")
+role_combobox['values'] = ("Staff", "Admin")
+role_combobox.set("Staff")
+role_combobox.pack(fill="x", ipady=5, pady=(0, 15))
+
+# Password
+create_label("PASSWORD").pack(anchor="w", pady=(10, 2))
+password_entry = create_entry(show="*")
+password_entry.pack(fill="x", ipady=8, pady=(0, 15))
+
+# Confirm Password
+create_label("CONFIRM PASSWORD").pack(anchor="w", pady=(10, 2))
+confirm_entry = create_entry(show="*")
+confirm_entry.pack(fill="x", ipady=8, pady=(0, 30))
+
+# --- BUTTONS ---
+register_btn = tk.Button(
+    form_container, text="REGISTER ACCOUNT", command=create_account,
+    font=("Segoe UI", 12, "bold"), bg=PRIMARY_GREEN, fg=WHITE,
+    activebackground=DARK_GREEN, activeforeground=WHITE,
+    bd=0, cursor="hand2"
 )
-create_button.grid(row=9, column=0, columnspan=2, pady=(30, 10), ipady=8)
+register_btn.pack(fill="x", ipady=12)
 
-# Cancel/Back Button
-cancel_button = tk.Button(
-    main_frame,
-    text="Cancel and Exit",
-    command=close_window,
-    font=("Arial", 10),
-    bg="white",
-    fg="#d32f2f",
-    bd=0,
-    cursor="hand2"
+cancel_btn = tk.Button(
+    form_container, text="Cancel", command=close_window,
+    font=("Segoe UI", 10, "underline"), bg=WHITE, fg=DANGER_RED,
+    activebackground=WHITE, activeforeground=TEXT_COLOR,
+    bd=0, cursor="hand2"
 )
-cancel_button.grid(row=10, column=0, columnspan=2)
-
-# Check DB connection
-if database.db is None:
-    messagebox.showwarning("Database Error", "Not connected to MongoDB!")
+cancel_btn.pack(pady=15)
 
 window.mainloop()
