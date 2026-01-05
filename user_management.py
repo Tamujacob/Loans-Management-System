@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import ttk, messagebox
 import subprocess
 import sys
-import database  # Ensure your database.py is in the same folder
+import database  
 from bson.objectid import ObjectId
 
 # --- NAVIGATION FUNCTIONS ---
@@ -63,7 +63,7 @@ def refresh_table():
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
-PRIMARY_BLUE = "#3498db"  # New Blue color for navigation
+PRIMARY_BLUE = "#3498db"  
 BG_LIGHT = "#f4f7f6"
 DARK_TEXT = "#2c3e50"
 WHITE = "#ffffff"
@@ -142,7 +142,7 @@ user_tree.pack(fill="both", expand=True)
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(side="bottom", fill="x", pady=20)
 
-# The updated Blue Button
+# --- Back to dashboard button ---
 back_btn = Button(footer, text="Back to Dashboard", font=("Segoe UI", 11, "bold"), 
                  bg=PRIMARY_BLUE, fg=WHITE, activebackground="#2980b9", 
                  activeforeground=WHITE, bd=0, padx=25, pady=10, 
