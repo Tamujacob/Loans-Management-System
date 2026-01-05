@@ -23,10 +23,11 @@ def open_create_account():
 
 # --- DATABASE LOGIC ---
 def fetch_users():
-    """Retrieves all users from MongoDB."""
+    """Retrieves all users from MongoDB including email."""
     if database.db is None:
         return []
     try:
+        # We fetch all fields except the sensitive password hash
         return list(database.db['users'].find({}, {"password_hash": 0})) 
     except Exception as e:
         print(f"Error fetching users: {e}")
@@ -39,9 +40,10 @@ def delete_user():
         messagebox.showwarning("Selection Required", "Please select a user to delete.")
         return
 
+    # values[0] = ID, values[1] = Email, values[2] = Username
     user_data = user_tree.item(selected_item)['values']
     user_id = user_data[0]
-    username = user_data[1]
+    username = user_data[2] 
 
     confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user: {username}?")
     if confirm:
@@ -53,13 +55,19 @@ def delete_user():
             messagebox.showerror("Error", f"Failed to delete user: {e}")
 
 def refresh_table():
-    """Clears and reloads the user table."""
+    """Clears and reloads the user table with the new Email field."""
     for item in user_tree.get_children():
         user_tree.delete(item)
     
     users = fetch_users()
     for user in users:
-        user_tree.insert("", "end", values=(str(user['_id']), user['username'], user.get('role', 'Staff')))
+        # Extract fields with .get() to avoid errors if a field is missing in old records
+        u_id = str(user['_id'])
+        u_email = user.get('email', 'N/A')
+        u_name = user.get('username', 'Unknown')
+        u_role = user.get('role', 'Staff')
+        
+        user_tree.insert("", "end", values=(u_id, u_email, u_name, u_role))
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
@@ -72,7 +80,7 @@ DANGER_RED = "#e74c3c"
 # --- MAIN WINDOW SETUP ---
 window = Tk()
 window.title("Loans Management System - User Management")
-window.geometry("1100x700")
+window.geometry("1150x700") # Slightly wider for the extra column
 window.configure(bg=BG_LIGHT)
 
 # --- SET WINDOW TITLE BAR ICON ---
@@ -124,16 +132,19 @@ tree_frame.pack(fill="both", expand=True)
 tree_scroll = Scrollbar(tree_frame)
 tree_scroll.pack(side=RIGHT, fill=Y)
 
-user_tree = ttk.Treeview(tree_frame, columns=("ID", "Username", "Role"), 
+# Added "Email" to the columns list
+user_tree = ttk.Treeview(tree_frame, columns=("ID", "Email", "Username", "Role"), 
                         show="headings", yscrollcommand=tree_scroll.set)
 tree_scroll.config(command=user_tree.yview)
 
 user_tree.heading("ID", text="User ID")
+user_tree.heading("Email", text="Email Address")
 user_tree.heading("Username", text="Username")
 user_tree.heading("Role", text="Access Level")
 
-user_tree.column("ID", width=250, anchor="center")
-user_tree.column("Username", width=300, anchor="w")
+user_tree.column("ID", width=200, anchor="center")
+user_tree.column("Email", width=250, anchor="w")
+user_tree.column("Username", width=200, anchor="w")
 user_tree.column("Role", width=150, anchor="center")
 
 user_tree.pack(fill="both", expand=True)
@@ -142,11 +153,10 @@ user_tree.pack(fill="both", expand=True)
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(side="bottom", fill="x", pady=20)
 
-# --- Back to dashboard button ---
 back_btn = Button(footer, text="Back to Dashboard", font=("Segoe UI", 11, "bold"), 
-                 bg=PRIMARY_BLUE, fg=WHITE, activebackground="#2980b9", 
-                 activeforeground=WHITE, bd=0, padx=25, pady=10, 
-                 cursor="hand2", command=back_to_dashboard)
+                  bg=PRIMARY_BLUE, fg=WHITE, activebackground="#2980b9", 
+                  activeforeground=WHITE, bd=0, padx=25, pady=10, 
+                  cursor="hand2", command=back_to_dashboard)
 back_btn.pack()
 
 # Initial Data Load
