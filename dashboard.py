@@ -30,7 +30,6 @@ def open_login():
 
 def open_loan_repayment():
     """Navigates to Loan Repayment module."""
-    # window.destroy() # Uncomment if you want to close dashboard
     # subprocess.Popen([sys.executable, "loan_repayment.py"])
     print("Navigating to Loan Repayment module...")
 
