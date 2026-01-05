@@ -16,7 +16,6 @@ def back_to_dashboard():
 
 def open_create_account():
     """Opens the account creation script."""
-    # We keep user management open so we can refresh the list after adding
     try:
         subprocess.Popen([sys.executable, "create account.py"])
     except Exception:
@@ -28,7 +27,7 @@ def fetch_users():
     if database.db is None:
         return []
     try:
-        return list(database.db['users'].find({}, {"password_hash": 0})) # Don't fetch hashes
+        return list(database.db['users'].find({}, {"password_hash": 0})) 
     except Exception as e:
         print(f"Error fetching users: {e}")
         return []
@@ -60,11 +59,11 @@ def refresh_table():
     
     users = fetch_users()
     for user in users:
-        # Formatting MongoDB ID and getting role (default to Staff if missing)
         user_tree.insert("", "end", values=(str(user['_id']), user['username'], user.get('role', 'Staff')))
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
+PRIMARY_BLUE = "#3498db"  # New Blue color for navigation
 BG_LIGHT = "#f4f7f6"
 DARK_TEXT = "#2c3e50"
 WHITE = "#ffffff"
@@ -122,7 +121,6 @@ table_style.configure("Treeview", font=("Segoe UI", 10), rowheight=30)
 tree_frame = Frame(main_frame, bg=WHITE)
 tree_frame.pack(fill="both", expand=True)
 
-# Scrollbar
 tree_scroll = Scrollbar(tree_frame)
 tree_scroll.pack(side=RIGHT, fill=Y)
 
@@ -144,9 +142,11 @@ user_tree.pack(fill="both", expand=True)
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(side="bottom", fill="x", pady=20)
 
-back_btn = Button(footer, text="Back to Dashboard", font=("Segoe UI", 10, "bold"), 
-                 bg=BG_LIGHT, fg=DARK_TEXT, bd=1, relief="solid", 
-                 padx=20, pady=5, cursor="hand2", command=back_to_dashboard)
+# The updated Blue Button
+back_btn = Button(footer, text="Back to Dashboard", font=("Segoe UI", 11, "bold"), 
+                 bg=PRIMARY_BLUE, fg=WHITE, activebackground="#2980b9", 
+                 activeforeground=WHITE, bd=0, padx=25, pady=10, 
+                 cursor="hand2", command=back_to_dashboard)
 back_btn.pack()
 
 # Initial Data Load
