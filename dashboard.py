@@ -1,35 +1,52 @@
 from tkinter import *
-import subprocess  # Switched from os to subprocess for better path handling
+import subprocess
 import sys
+from tkinter import messagebox
 
 # --- NAVIGATION FUNCTIONS ---
 def open_loan_application():
     """Destroys dashboard and runs the loan application script."""
     window.destroy()
-    # subprocess handles the space in 'ARJENZ JACOB' automatically
-    subprocess.Popen([sys.executable, "loan application.py"])
+    try:
+        subprocess.Popen([sys.executable, "loan application.py"])
+    except Exception:
+        messagebox.showerror("Error", "Could not find 'loan application.py'.")
 
 def open_loan_management():
     """Destroys dashboard and runs the loan management script."""
     window.destroy()
-    subprocess.Popen([sys.executable, "loan management.py"])
+    try:
+        subprocess.Popen([sys.executable, "loan management.py"])
+    except Exception:
+        messagebox.showerror("Error", "Could not find 'loan management.py'.")
 
 def open_login():
     """Returns to the login screen."""
     window.destroy()
-    subprocess.Popen([sys.executable, "login.py"])
+    try:
+        subprocess.Popen([sys.executable, "login.py"])
+    except Exception:
+        messagebox.showerror("Error", "Could not find 'login.py'.")
 
 def open_loan_repayment():
-    print("Navigating to Loan Repayment module...")
+    """Navigates to Loan Repayment module."""
+    # window.destroy() # Uncomment if you want to close dashboard
     # subprocess.Popen([sys.executable, "loan_repayment.py"])
+    print("Navigating to Loan Repayment module...")
 
 def open_user_management():
-    print("Navigating to User Management module...")
-    # subprocess.Popen([sys.executable, "user_management.py"])
+    """Destroys dashboard and opens the new User Management module."""
+    window.destroy()
+    try:
+        # This now points to your professional user_management.py file
+        subprocess.Popen([sys.executable, "user_management.py"])
+    except Exception:
+        messagebox.showerror("Error", "Could not find 'user_management.py'.")
     
 def open_reports_analysis():
-    print("Navigating to Reports and Analytics module...")
+    """Navigates to Reports and Analytics module."""
     # subprocess.Popen([sys.executable, "reports_analysis.py"])
+    print("Navigating to Reports and Analytics module...")
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"  # Your Company Green
@@ -45,7 +62,6 @@ window.configure(bg=BG_LIGHT)
 
 # --- SET WINDOW TITLE BAR ICON ---
 try:
-    # Replaces the default leaf icon with your company logo
     title_icon = PhotoImage(file="bu logo.png")
     window.iconphoto(True, title_icon)
 except Exception as e:
@@ -94,6 +110,7 @@ loan_rep_btn = Button(frame, text="Loan Repayment", bg=DARK_TEXT, fg=WHITE,
                       **btn_style, command=open_loan_repayment)
 loan_rep_btn.grid(row=2, column=0, pady=12)
 
+# Updated User Management Button
 user_man_btn = Button(frame, text="User Management", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
                       **btn_style, command=open_user_management)
