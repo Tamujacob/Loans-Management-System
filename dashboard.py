@@ -3,9 +3,18 @@ import subprocess
 import sys
 from tkinter import messagebox
 
+# --- 1. CATCH LOGIN ARGUMENTS ---
+# sys.argv[1] is the Role, sys.argv[2] is the Full Name
+try:
+    CURRENT_USER_ROLE = sys.argv[1]
+    CURRENT_USER_NAME = sys.argv[2]
+except IndexError:
+    # Default values if run directly for testing
+    CURRENT_USER_ROLE = "Staff"
+    CURRENT_USER_NAME = "Guest"
+
 # --- NAVIGATION FUNCTIONS ---
 def open_loan_application():
-    """Destroys dashboard and runs the loan application script."""
     window.destroy()
     try:
         subprocess.Popen([sys.executable, "loan application.py"])
@@ -13,7 +22,6 @@ def open_loan_application():
         messagebox.showerror("Error", "Could not find 'loan application.py'.")
 
 def open_loan_management():
-    """Destroys dashboard and runs the loan management script."""
     window.destroy()
     try:
         subprocess.Popen([sys.executable, "loan management.py"])
@@ -21,53 +29,35 @@ def open_loan_management():
         messagebox.showerror("Error", "Could not find 'loan management.py'.")
 
 def open_login():
-    """Returns to the login screen."""
-    window.destroy()
-    try:
-        subprocess.Popen([sys.executable, "login.py"])
-    except Exception:
-        messagebox.showerror("Error", "Could not find 'login.py'.")
-
-def open_loan_repayment():
-    """Navigates to Loan Repayment module."""
-    # subprocess.Popen([sys.executable, "loan_repayment.py"])
-    print("Navigating to Loan Repayment module...")
+    """Sign out and return to login."""
+    if messagebox.askyesno("Sign Out", "Are you sure you want to sign out?"):
+        window.destroy()
+        try:
+            subprocess.Popen([sys.executable, "login.py"])
+        except Exception:
+            messagebox.showerror("Error", "Could not find 'login.py'.")
 
 def open_user_management():
-    """Destroys dashboard and opens the new User Management module."""
     window.destroy()
     try:
-        # This now points to your professional user_management.py file
         subprocess.Popen([sys.executable, "user_management.py"])
     except Exception:
         messagebox.showerror("Error", "Could not find 'user_management.py'.")
-    
-def open_reports_analysis():
-    """Navigates to Reports and Analytics module."""
-    # subprocess.Popen([sys.executable, "reports_analysis.py"])
-    print("Navigating to Reports and Analytics module...")
 
 # --- THEME COLORS ---
-PRIMARY_GREEN = "#2ecc71"  # Your Company Green
+PRIMARY_GREEN = "#2ecc71"  
 BG_LIGHT = "#f4f7f6"       
 DARK_TEXT = "#2c3e50"
 WHITE = "#ffffff"
 
 # --- MAIN WINDOW SETUP ---
 window = Tk()
-window.title("Loans Management System - Dashboard")
-window.geometry("1100x700") 
+window.title(f"Dashboard - {CURRENT_USER_NAME} ({CURRENT_USER_ROLE})")
+window.geometry("1100x750") 
 window.configure(bg=BG_LIGHT)
 
-# --- SET WINDOW TITLE BAR ICON ---
-try:
-    title_icon = PhotoImage(file="bu logo.png")
-    window.iconphoto(True, title_icon)
-except Exception as e:
-    print(f"Title bar icon could not be loaded: {e}")
-
 # --- HEADER SECTION ---
-header = Frame(window, bg=PRIMARY_GREEN, height=120)
+header = Frame(window, bg=PRIMARY_GREEN, height=140)
 header.pack(fill="x", side="top")
 header.pack_propagate(False)
 
@@ -75,6 +65,12 @@ Label(header, text="BIG ON GOLD LOANS", font=("Segoe UI", 28, "bold"),
       fg=WHITE, bg=PRIMARY_GREEN).pack(pady=(20, 0))
 Label(header, text="MANAGEMENT DASHBOARD", font=("Segoe UI", 12, "bold"), 
       fg=WHITE, bg=PRIMARY_GREEN).pack()
+
+# User Status Bar in Header
+status_frame = Frame(header, bg="#27ae60", padx=20)
+status_frame.pack(side="bottom", fill="x")
+Label(status_frame, text=f"👤 User: {CURRENT_USER_NAME}  |  🔑 Role: {CURRENT_USER_ROLE}", 
+      font=("Segoe UI", 10), fg=WHITE, bg="#27ae60").pack(pady=5)
 
 # --- MAIN CONTENT FRAME ---
 frame = Frame(window, bg=WHITE, relief="flat", bd=0, padx=50, pady=30, 
@@ -92,37 +88,49 @@ btn_style = {
 }
 
 # --- BUTTONS ---
-# Loan Application
+current_row = 0
+
+# 1. Loan Application (Visible to all)
 loan_app_btn = Button(frame, text="New Loan Application", bg=PRIMARY_GREEN, fg=WHITE, 
                       activebackground="#27ae60", activeforeground=WHITE,
                       **btn_style, command=open_loan_application)
-loan_app_btn.grid(row=0, column=0, pady=12)
+loan_app_btn.grid(row=current_row, column=0, pady=12)
+current_row += 1
 
-# Management Buttons
+# 2. Loan Management (Visible to all)
 loan_man_btn = Button(frame, text="Loan Management", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
                       **btn_style, command=open_loan_management)
-loan_man_btn.grid(row=1, column=0, pady=12)
+loan_man_btn.grid(row=current_row, column=0, pady=12)
+current_row += 1
 
+# 3. Loan Repayment (Placeholder)
 loan_rep_btn = Button(frame, text="Loan Repayment", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
-                      **btn_style, command=open_loan_repayment)
-loan_rep_btn.grid(row=2, column=0, pady=12)
+                      **btn_style)
+loan_rep_btn.grid(row=current_row, column=0, pady=12)
+current_row += 1
 
-# Updated User Management Button
-user_man_btn = Button(frame, text="User Management", bg=DARK_TEXT, fg=WHITE, 
-                      activebackground="#34495e", activeforeground=WHITE,
-                      **btn_style, command=open_user_management)
-user_man_btn.grid(row=3, column=0, pady=12)
+# --- 2. THE LOGIC: CONDITIONAL BUTTON ---
+if CURRENT_USER_ROLE == "Admin":
+    user_man_btn = Button(frame, text="User Management", bg="#3498db", fg=WHITE, 
+                          activebackground="#2980b9", activeforeground=WHITE,
+                          **btn_style, command=open_user_management)
+    user_man_btn.grid(row=current_row, column=0, pady=12)
+    current_row += 1
+else:
+    # If not Admin, we do nothing. The button simply isn't created.
+    pass
 
+# 4. Reports and Analytics (Visible to all)
 reports_btn = Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, 
-                     activebackground="#34495e", activeforeground=WHITE,
-                     **btn_style, command=open_reports_analysis)
-reports_btn.grid(row=4, column=0, pady=12)
+                      activebackground="#34495e", activeforeground=WHITE,
+                      **btn_style)
+reports_btn.grid(row=current_row, column=0, pady=12)
 
 # --- FOOTER ---
-exit_btn = Button(window, text="Sign Out", font=("Segoe UI", 10, "underline"), 
-                  bg=BG_LIGHT, fg=DARK_TEXT, bd=0, cursor="hand2", command=open_login)
-exit_btn.pack(side="bottom", pady=20)
+exit_btn = Button(window, text="🚪 Sign Out", font=("Segoe UI", 11, "bold", "underline"), 
+                  bg=BG_LIGHT, fg="#e74c3c", bd=0, cursor="hand2", command=open_login)
+exit_btn.pack(side="bottom", pady=30)
 
 window.mainloop()
