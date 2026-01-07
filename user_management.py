@@ -6,24 +6,29 @@ import database
 from bson.objectid import ObjectId
 
 # --- 1. SESSION PERSISTENCE ---
-# Catch the role and name passed from dashboard.py
 try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
 except IndexError:
-    # Fallback if opened directly
     CURRENT_USER_ROLE = "Admin"
     CURRENT_USER_NAME = "Administrator"
 
 # --- NAVIGATION FUNCTIONS ---
 def back_to_dashboard():
-    """Destroys current window and returns to dashboard while passing the role back."""
     window.destroy()
     try:
-        # We MUST pass CURRENT_USER_ROLE and CURRENT_USER_NAME back to dashboard.py
         subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'dashboard.py'.")
+
+def handle_logout():
+    confirm = messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?")
+    if confirm:
+        window.destroy()
+        try:
+            subprocess.Popen([sys.executable, "login.py"])
+        except Exception:
+            messagebox.showerror("Error", "Could not return to login screen.")
 
 def open_create_account():
     try:
@@ -76,15 +81,16 @@ def refresh_table():
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
-PRIMARY_BLUE = "#3498db"  
+PRIMARY_BLUE = "#2980b9"  # Deep blue for "Back"
 BG_LIGHT = "#f4f7f6"
 DARK_TEXT = "#2c3e50"
 WHITE = "#ffffff"
-DANGER_RED = "#e74c3c"
+DANGER_RED = "#c0392b"    # Matches dashboard logout red
+HOVER_RED = "#e74c3c"
 
 window = Tk()
 window.title(f"User Management - Logged in as: {CURRENT_USER_NAME}")
-window.geometry("1250x700")
+window.geometry("1250x800") # Increased height for footer visibility
 window.configure(bg=BG_LIGHT)
 
 # --- HEADER ---
@@ -139,14 +145,53 @@ user_tree.column("Role", width=120, anchor="center")
 
 user_tree.pack(fill="both", expand=True)
 
-# --- FOOTER ---
+# --- FOOTER SECTION (Enhanced Visibility) ---
 footer = Frame(window, bg=BG_LIGHT)
-footer.pack(side="bottom", fill="x", pady=20)
+footer.pack(side="bottom", fill="x", pady=(20, 40)) # More bottom padding
 
-Button(footer, text="Back to Dashboard", font=("Segoe UI", 11, "bold"), 
-       bg=PRIMARY_BLUE, fg=WHITE, activebackground="#2980b9", 
-       activeforeground=WHITE, bd=0, padx=25, pady=10, 
-       cursor="hand2", command=back_to_dashboard).pack()
+# Container to center the buttons
+btn_container = Frame(footer, bg=BG_LIGHT)
+btn_container.pack()
+
+# Back Button Styling
+back_btn = Button(
+    btn_container, 
+    text="🔙 BACK TO DASHBOARD", 
+    font=("Segoe UI", 13, "bold"),
+    bg=PRIMARY_BLUE, 
+    fg=WHITE,
+    activebackground="#3498db",
+    activeforeground=WHITE,
+    width=25,
+    height=2,
+    bd=0,
+    cursor="hand2",
+    command=back_to_dashboard
+)
+back_btn.pack(side="left", padx=20)
+
+# Logout Button Styling
+logout_btn = Button(
+    btn_container, 
+    text="🛑 LOGOUT SYSTEM", 
+    font=("Segoe UI", 13, "bold"),
+    bg=DANGER_RED, 
+    fg=WHITE,
+    activebackground=HOVER_RED,
+    activeforeground=WHITE,
+    width=25,
+    height=2,
+    bd=0,
+    cursor="hand2",
+    command=handle_logout
+)
+logout_btn.pack(side="left", padx=20)
+
+# Hover Effects
+def on_enter_logout(e): logout_btn['background'] = HOVER_RED
+def on_leave_logout(e): logout_btn['background'] = DANGER_RED
+logout_btn.bind("<Enter>", on_enter_logout)
+logout_btn.bind("<Leave>", on_leave_logout)
 
 if database.db is not None:
     refresh_table()
