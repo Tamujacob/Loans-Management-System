@@ -5,11 +5,23 @@ import sys
 import database  
 from bson.objectid import ObjectId
 
+# --- 1. SESSION PERSISTENCE ---
+# Catch the role and name passed from dashboard.py
+try:
+    CURRENT_USER_ROLE = sys.argv[1]
+    CURRENT_USER_NAME = sys.argv[2]
+except IndexError:
+    # Fallback if opened directly
+    CURRENT_USER_ROLE = "Admin"
+    CURRENT_USER_NAME = "Administrator"
+
 # --- NAVIGATION FUNCTIONS ---
 def back_to_dashboard():
+    """Destroys current window and returns to dashboard while passing the role back."""
     window.destroy()
     try:
-        subprocess.Popen([sys.executable, "dashboard.py"])
+        # We MUST pass CURRENT_USER_ROLE and CURRENT_USER_NAME back to dashboard.py
+        subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'dashboard.py'.")
 
@@ -55,7 +67,7 @@ def refresh_table():
     users = fetch_users()
     for user in users:
         u_id = str(user['_id'])
-        u_full_name = user.get('full_name', 'N/A') # New Field
+        u_full_name = user.get('full_name', 'N/A')
         u_email = user.get('email', 'N/A')
         u_name = user.get('username', 'Unknown')
         u_role = user.get('role', 'Staff')
@@ -71,8 +83,8 @@ WHITE = "#ffffff"
 DANGER_RED = "#e74c3c"
 
 window = Tk()
-window.title("Loans Management System - User Management")
-window.geometry("1250x700") # Wider to accommodate Full Name
+window.title(f"User Management - Logged in as: {CURRENT_USER_NAME}")
+window.geometry("1250x700")
 window.configure(bg=BG_LIGHT)
 
 # --- HEADER ---
@@ -109,7 +121,6 @@ tree_frame.pack(fill="both", expand=True)
 tree_scroll = Scrollbar(tree_frame)
 tree_scroll.pack(side=RIGHT, fill=Y)
 
-# Columns now include "Full Name"
 user_tree = ttk.Treeview(tree_frame, columns=("ID", "FullName", "Email", "Username", "Role"), 
                         show="headings", yscrollcommand=tree_scroll.set)
 tree_scroll.config(command=user_tree.yview)

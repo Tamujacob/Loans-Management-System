@@ -4,27 +4,27 @@ import sys
 from tkinter import messagebox
 
 # --- 1. CATCH LOGIN ARGUMENTS ---
-# sys.argv[1] is the Role, sys.argv[2] is the Full Name
 try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
 except IndexError:
-    # Default values if run directly for testing
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
-# --- NAVIGATION FUNCTIONS ---
+# --- NAVIGATION FUNCTIONS (With Session Persistence) ---
 def open_loan_application():
     window.destroy()
     try:
-        subprocess.Popen([sys.executable, "loan application.py"])
+        # Pass session data forward
+        subprocess.Popen([sys.executable, "loan application.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'loan application.py'.")
 
 def open_loan_management():
     window.destroy()
     try:
-        subprocess.Popen([sys.executable, "loan management.py"])
+        # Pass session data forward
+        subprocess.Popen([sys.executable, "loan management.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'loan management.py'.")
 
@@ -40,7 +40,8 @@ def open_login():
 def open_user_management():
     window.destroy()
     try:
-        subprocess.Popen([sys.executable, "user_management.py"])
+        # Pass session data forward
+        subprocess.Popen([sys.executable, "user_management.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'user_management.py'.")
 
@@ -90,39 +91,36 @@ btn_style = {
 # --- BUTTONS ---
 current_row = 0
 
-# 1. Loan Application (Visible to all)
+# 1. Loan Application
 loan_app_btn = Button(frame, text="New Loan Application", bg=PRIMARY_GREEN, fg=WHITE, 
                       activebackground="#27ae60", activeforeground=WHITE,
                       **btn_style, command=open_loan_application)
 loan_app_btn.grid(row=current_row, column=0, pady=12)
 current_row += 1
 
-# 2. Loan Management (Visible to all)
+# 2. Loan Management
 loan_man_btn = Button(frame, text="Loan Management", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
                       **btn_style, command=open_loan_management)
 loan_man_btn.grid(row=current_row, column=0, pady=12)
 current_row += 1
 
-# 3. Loan Repayment (Placeholder)
+# 3. Loan Repayment
 loan_rep_btn = Button(frame, text="Loan Repayment", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
                       **btn_style)
 loan_rep_btn.grid(row=current_row, column=0, pady=12)
 current_row += 1
 
-# --- 2. THE LOGIC: CONDITIONAL BUTTON ---
+# --- CONDITIONAL ADMIN BUTTON ---
 if CURRENT_USER_ROLE == "Admin":
     user_man_btn = Button(frame, text="User Management", bg="#3498db", fg=WHITE, 
                           activebackground="#2980b9", activeforeground=WHITE,
                           **btn_style, command=open_user_management)
     user_man_btn.grid(row=current_row, column=0, pady=12)
     current_row += 1
-else:
-    # If not Admin, we do nothing. The button simply isn't created.
-    pass
 
-# 4. Reports and Analytics (Visible to all)
+# 4. Reports and Analytics
 reports_btn = Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, 
                       activebackground="#34495e", activeforeground=WHITE,
                       **btn_style)
