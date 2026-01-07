@@ -12,24 +12,34 @@ import os
 
 # --- THEME & STYLE ---
 PRIMARY_GREEN = "#2ecc71"
+PRIMARY_BLUE = "#2980b9"
 BG_LIGHT = "#f4f7f6"
 DARK_TEXT = "#2c3e50"
 BORDER_COLOR = "#dcdde1"
+DANGER_RED = "#c0392b"
+HOVER_RED = "#e74c3c"
 FONT_FAMILY = "Segoe UI" 
+
+# --- SESSION PERSISTENCE ---
+try:
+    CURRENT_USER_ROLE = sys.argv[1]
+    CURRENT_USER_NAME = sys.argv[2]
+except IndexError:
+    CURRENT_USER_ROLE = "Staff"
+    CURRENT_USER_NAME = "Guest"
 
 class LoanApplicationApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Loan Management System - Apply")
-        self.root.geometry("1100x750") 
+        self.root.title(f"Loan Application - Logged in as: {CURRENT_USER_NAME}")
+        self.root.geometry("1150x850") 
         self.root.configure(bg=BG_LIGHT)
 
-        # --- SET WINDOW TITLE BAR ICON ---
         try:
             title_icon = tk.PhotoImage(file="bu logo.png")
             self.root.iconphoto(True, title_icon)
-        except Exception as e:
-            print(f"Icon could not be loaded: {e}")
+        except Exception:
+            pass
 
         self.repayment_method_var = tk.StringVar(value="Monthly")
         self.terms_var = tk.IntVar()
@@ -37,7 +47,6 @@ class LoanApplicationApp:
         self.setup_ui()
 
     def setup_ui(self):
-        # 1. Header
         header = tk.Frame(self.root, bg=PRIMARY_GREEN, height=100)
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
@@ -45,7 +54,6 @@ class LoanApplicationApp:
         tk.Label(header, text="OFFICIAL LOAN APPLICATION", font=(FONT_FAMILY, 24, "bold"), 
                  bg=PRIMARY_GREEN, fg="white").pack(pady=(25, 0))
 
-        # 2. Scrollable Canvas Setup
         self.main_canvas = tk.Canvas(self.root, bg=BG_LIGHT, highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
         self.scrollable_frame = tk.Frame(self.main_canvas, bg=BG_LIGHT)
@@ -55,12 +63,11 @@ class LoanApplicationApp:
             lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
         )
 
-        self.main_canvas.create_window((550, 0), window=self.scrollable_frame, anchor="n")
+        self.main_canvas.create_window((575, 0), window=self.scrollable_frame, anchor="n")
         self.main_canvas.configure(yscrollcommand=self.scrollbar.set)
         self.main_canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # 3. Form Card
         self.card = tk.Frame(self.scrollable_frame, bg="white", padx=50, pady=40, 
                              highlightthickness=1, highlightbackground=BORDER_COLOR)
         self.card.pack(pady=30, padx=20)
@@ -90,7 +97,7 @@ class LoanApplicationApp:
         self.amount_entry.bind("<KeyRelease>", self.update_return_amount)
         
         self.type_combo = ttk.Combobox(self.card, values=["Personal", "Business", "Home", "Education", "Vehicle"], 
-                                       font=(FONT_FAMILY, 13), state="readonly")
+                                        font=(FONT_FAMILY, 13), state="readonly")
         self.type_combo.grid(row=3, column=1, sticky="ew", padx=15, pady=(0, 20))
 
         self.create_label("REPAYMENT DURATION", 4, 0)
@@ -117,20 +124,49 @@ class LoanApplicationApp:
 
         tk.Checkbutton(self.card, text="I accept the terms and conditions", variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=9, column=0, columnspan=2, sticky="w", padx=15, pady=20)
 
-        # --- BUTTON SECTION ---
-        btn_frame = tk.Frame(self.card, bg="white")
-        btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
+        # --- SUBMISSION BUTTONS ---
+        submit_btn_frame = tk.Frame(self.card, bg="white")
+        submit_btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
 
-        tk.Button(btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
+        tk.Button(submit_btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
+        tk.Button(submit_btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
+
+        # --- FOOTER NAVIGATION (BACK & LOGOUT) ---
+        footer_nav = tk.Frame(self.scrollable_frame, bg=BG_LIGHT)
+        footer_nav.pack(fill="x", pady=(20, 50))
+
+        # Back to Dashboard Button
+        back_btn = tk.Button(footer_nav, text="🔙 BACK TO DASHBOARD", bg=PRIMARY_BLUE, fg="white", font=(FONT_FAMILY, 12, "bold"), 
+                             bd=0, width=25, height=2, cursor="hand2", command=self.return_to_dashboard)
+        back_btn.pack(side="left", padx=(150, 20))
+
+        # Logout Button
+        self.logout_btn = tk.Button(footer_nav, text="🛑 LOGOUT SYSTEM", bg=DANGER_RED, fg="white", font=(FONT_FAMILY, 12, "bold"), 
+                                    bd=0, width=25, height=2, cursor="hand2", command=self.handle_logout)
+        self.logout_btn.pack(side="left", padx=20)
         
-        tk.Button(btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
-
-        tk.Button(btn_frame, text="BACK TO DASHBOARD", bg=DARK_TEXT, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.return_to_dashboard).pack(side="left", padx=10)
+        # Hover Effect
+        self.logout_btn.bind("<Enter>", lambda e: self.logout_btn.config(bg=HOVER_RED))
+        self.logout_btn.bind("<Leave>", lambda e: self.logout_btn.config(bg=DANGER_RED))
 
     # --- LOGIC & FUNCTIONS ---
     def return_to_dashboard(self):
+        """Destroys current window and returns to dashboard while passing the role back."""
         self.root.destroy()
-        subprocess.Popen([sys.executable, "dashboard.py"])
+        try:
+            # IMPORTANT: Passing session arguments back so the role is not lost
+            subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
+        except Exception:
+            messagebox.showerror("Error", "Could not find 'dashboard.py'.")
+
+    def handle_logout(self):
+        """Confirms logout and returns to login screen, clearing session."""
+        if messagebox.askyesno("Logout", "Are you sure you want to sign out?"):
+            self.root.destroy()
+            try:
+                subprocess.Popen([sys.executable, "login.py"])
+            except Exception:
+                messagebox.showerror("Error", "Could not find 'login.py'.")
 
     def update_return_amount(self, event=None):
         try:
@@ -179,14 +215,11 @@ class LoanApplicationApp:
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
             doc = Document()
-            
             title = doc.add_heading('OFFICIAL LOAN APPLICATION', 0)
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
             doc.add_heading('Application Details', level=1)
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
-            
             data = [
                 ("Application ID:", app_id),
                 ("Applicant Name:", self.name_entry.get()),
@@ -195,17 +228,13 @@ class LoanApplicationApp:
                 ("Loan Category:", self.type_combo.get()),
                 ("Total Repayment:", self.return_amount_lbl.cget('text'))
             ]
-            
             for key, value in data:
                 row_cells = table.add_row().cells
                 row_cells[0].text = key
                 row_cells[1].text = value
-            
             doc.add_heading('Purpose of Loan', level=1)
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
-            
             doc.add_paragraph("\n\nSignature: __________________________")
-            
             filename = f"Loan_App_{app_id}.docx"
             doc.save(filename)
             os.startfile(filename)
