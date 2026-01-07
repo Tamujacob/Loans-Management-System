@@ -8,6 +8,14 @@ import pandas as pd # Required: pip install pandas openpyxl
 from datetime import datetime
 from bson.objectid import ObjectId
 
+# --- SESSION PERSISTENCE ---
+try:
+    CURRENT_USER_ROLE = sys.argv[1]
+    CURRENT_USER_NAME = sys.argv[2]
+except IndexError:
+    CURRENT_USER_ROLE = "Staff"
+    CURRENT_USER_NAME = "Guest"
+
 # --- SAFE IMPORT FOR DATEUTIL ---
 try:
     from dateutil.relativedelta import relativedelta
@@ -24,8 +32,8 @@ except ImportError:
 class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Unified Loan Management System")
-        self.geometry("1100x700") 
+        self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
+        self.geometry("1100x750") 
         self.config(bg="#ecf0f1")
         
         # Set Window Icon
@@ -61,16 +69,27 @@ class LoanApp(tk.Tk):
 
     def open_loan_application(self):
         try:
-            subprocess.Popen([sys.executable, "loan application.py"])
+            # Pass role logic to application
+            subprocess.Popen([sys.executable, "loan application.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
     def back_to_dashboard_file(self):
+        """Returns to main dashboard while maintaining role/session."""
         try:
-            subprocess.Popen([sys.executable, "dashboard.py"])
+            subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
             self.destroy() 
         except Exception as e:
             messagebox.showerror("Navigation Error", f"Failed: {e}")
+
+    def logout_system(self):
+        """Standard logout logic to clear session and return to login screen."""
+        if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
+            try:
+                subprocess.Popen([sys.executable, "login.py"])
+                self.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", f"Logout failed: {e}")
 
 # --- LOAN MANAGEMENT DASHBOARD ---
 class DashboardFrame(tk.Frame):
@@ -110,6 +129,11 @@ class DashboardFrame(tk.Frame):
         tk.Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#e74c3c", fg="white", width=20, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
         
         tk.Button(sidebar, text="♻️ Recycle Bin", font=("Arial", 10, "italic"), bg="#7f8c8d", fg="white", width=20, command=lambda: self.filter_loans("Recycle")).pack(pady=(20, 3))
+
+        # --- LOGOUT BUTTON (ORANGE - BELOW RECYCLE BIN) ---
+        tk.Button(sidebar, text="🛑 Sign Out System", font=("Arial", 10, "bold"), 
+                  bg="#e67e22", fg="white", width=20, height=2,
+                  command=controller.logout_system).pack(pady=(20, 10))
 
         # --- MAIN HEADER ---
         header_frame = tk.Frame(self, bg="white", padx=20, pady=15)
@@ -203,7 +227,6 @@ class DashboardFrame(tk.Frame):
             start_dt = datetime.strptime(self.start_date_ent.get(), "%Y-%m-%d")
             end_dt = datetime.strptime(self.end_date_ent.get(), "%Y-%m-%d").replace(hour=23, minute=59)
             
-            # 1. Ask user for file location before doing the work
             default_fn = f"Loan_Report_{self.start_date_ent.get()}_to_{self.end_date_ent.get()}.xlsx"
             file_path = filedialog.asksaveasfilename(
                 initialfile=default_fn,
@@ -212,10 +235,9 @@ class DashboardFrame(tk.Frame):
                 title="Choose where to save your report"
             )
 
-            if not file_path: # User clicked cancel
+            if not file_path: 
                 return
 
-            # 2. Build Query
             query = {
                 "application_date": {"$gte": start_dt, "$lte": end_dt},
                 "is_deleted": {"$ne": True} if self.current_filter != "Recycle" else True
@@ -233,7 +255,6 @@ class DashboardFrame(tk.Frame):
                 messagebox.showwarning("No Results", "No loans found for this date range/status.")
                 return
 
-            # 3. Process Data
             cleaned = []
             for loan in data:
                 row = loan.copy()
@@ -252,7 +273,6 @@ class DashboardFrame(tk.Frame):
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
 
-    # --- CORE MANAGEMENT LOGIC ---
     def on_loan_select(self, event):
         selected_id = self.tree.focus()
         if not selected_id: return
