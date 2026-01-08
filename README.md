@@ -12,6 +12,7 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 - **🔍 Search & Filter**: Advanced search capabilities across loans and customers
 - **♻️ Recycle bin**: For keeping deleted loans 
 - ** Prints receipt for loan repayments**
+- ** Asess roles and what they access i.e  staff and admin
 
 ### Technical Features
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security
