@@ -3,6 +3,17 @@ from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 import datetime
 import database
+import sys
+import subprocess
+import os
+
+# --- SESSION PERSISTENCE ---
+try:
+    CURRENT_USER_ROLE = sys.argv[1]
+    CURRENT_USER_NAME = sys.argv[2]
+except IndexError:
+    CURRENT_USER_ROLE = "Staff"
+    CURRENT_USER_NAME = "Guest"
 
 class RepaymentWindow(tk.Toplevel):
     def __init__(self, master, loan_data, go_back_callback):
@@ -12,8 +23,8 @@ class RepaymentWindow(tk.Toplevel):
         self.loan_id = self.loan_data['_id'] 
         self.go_back_callback = go_back_callback 
         
-        self.title(f"Repayment Management - {self.loan_data['customer_name']}")
-        self.geometry("1100x750") 
+        self.title(f"Repayment Management - {self.loan_data['customer_name']} (User: {CURRENT_USER_NAME})")
+        self.geometry("1150x800") 
         self.config(bg="#f8f9fa") 
         
         # Define Colors
@@ -22,6 +33,7 @@ class RepaymentWindow(tk.Toplevel):
             "accent": "#3498db",
             "success": "#27ae60",
             "danger": "#e74c3c",
+            "logout": "#e67e22", # Orange for distinct logout
             "bg": "#f8f9fa"
         }
 
@@ -97,7 +109,7 @@ class RepaymentWindow(tk.Toplevel):
         
         tk.Label(form_frame, text="Next Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
         self.next_payment_date_entry = DateEntry(form_frame, width=12, background=self.colors["primary"], 
-                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                                  foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         next_month = datetime.date.today() + datetime.timedelta(days=30)
         self.next_payment_date_entry.set_date(next_month)
         self.next_payment_date_entry.grid(row=1, column=2, padx=(0,10), pady=5)
@@ -105,16 +117,17 @@ class RepaymentWindow(tk.Toplevel):
         tk.Label(form_frame, text="Payment Method", bg="white", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w")
         self.method_var = tk.StringVar(value='Bank Transfer')
         self.method_combo = ttk.Combobox(form_frame, textvariable=self.method_var, 
-                                         values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=12, state='readonly')
+                                          values=['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque'], width=12, state='readonly')
         self.method_combo.grid(row=1, column=3, padx=(0,10), pady=5)
 
         tk.Label(form_frame, text="Received By", bg="white", font=("Segoe UI", 9)).grid(row=0, column=4, sticky="w")
         self.received_by_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=12, highlightthickness=1, highlightbackground="#dcdde1", relief="flat")
+        self.received_by_entry.insert(0, CURRENT_USER_NAME) # Auto-fill from session
         self.received_by_entry.grid(row=1, column=4, pady=5)
 
         # Confirm Button
         btn_submit = tk.Button(form_frame, text="CONFIRM PAYMENT", bg=self.colors["success"], fg="white", 
-                              font=("Segoe UI", 9, "bold"), relief="flat", padx=15, command=self.record_payment, cursor="hand2")
+                               font=("Segoe UI", 9, "bold"), relief="flat", padx=15, command=self.record_payment, cursor="hand2")
         btn_submit.grid(row=0, column=5, rowspan=2, padx=(15, 0), sticky="ns")
 
     def create_payment_view(self):
@@ -150,12 +163,26 @@ class RepaymentWindow(tk.Toplevel):
         action_frame = tk.Frame(self, bg=self.colors["bg"])
         action_frame.grid(row=3, column=0, padx=20, pady=15, sticky="ew") 
         
-        tk.Button(action_frame, text="← Return to Loan Management", font=("Segoe UI", 10), bg="#95a5a6", fg="white", 
+        # Return Button
+        tk.Button(action_frame, text="← Return to Management", font=("Segoe UI", 10), bg="#95a5a6", fg="white", 
                   relief="flat", padx=15, command=self._handle_go_back, cursor="hand2").pack(side="left")
+        
+        # Logout Button (Carrot Orange)
+        tk.Button(action_frame, text="🛑 Sign Out System", font=("Segoe UI", 10, "bold"), bg=self.colors["logout"], fg="white", 
+                  relief="flat", padx=20, command=self.handle_logout, cursor="hand2").pack(side="left", padx=20)
         
         # Receipt Button
         tk.Button(action_frame, text="🖨️ Print Receipt for Selected", font=("Segoe UI", 10, "bold"), bg=self.colors["accent"], fg="white", 
                   relief="flat", padx=20, command=self.generate_receipt, cursor="hand2").pack(side="right")
+
+    def handle_logout(self):
+        if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
+            self.on_close() # Close current window
+            self.master.destroy() # Close the parent manager window
+            try:
+                subprocess.Popen([sys.executable, "login.py"])
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to logout: {e}")
 
     def load_payments(self):
         for item in self.payments_tree.get_children():
@@ -248,7 +275,7 @@ class RepaymentWindow(tk.Toplevel):
         
         receipt_text = f"""
         ===============================
-               OFFICIAL RECEIPT
+                OFFICIAL RECEIPT
         ===============================
         LOAN MANAGEMENT SYSTEM
         Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
