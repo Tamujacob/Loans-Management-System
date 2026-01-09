@@ -33,7 +33,7 @@ class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
-        self.geometry("1100x750") 
+        self.geometry("1200x650") 
         self.config(bg="#ecf0f1")
         
         # Set Window Icon
