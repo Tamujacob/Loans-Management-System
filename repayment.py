@@ -24,7 +24,9 @@ class RepaymentWindow(tk.Toplevel):
         self.go_back_callback = go_back_callback 
         
         self.title(f"Repayment Management - {self.loan_data['customer_name']} (User: {CURRENT_USER_NAME})")
-        self.geometry("1150x800") 
+        
+        # Reduced height to 700 to ensure it fits on all screens
+        self.geometry("1150x700") 
         self.config(bg="#f8f9fa") 
         
         # Define Colors
@@ -44,8 +46,12 @@ class RepaymentWindow(tk.Toplevel):
         
         self.setup_styles()
         
+        # --- GRID LAYOUT CONTROL ---
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1)
+        self.rowconfigure(0, weight=0) # Summary Frame (Fixed height)
+        self.rowconfigure(1, weight=0) # Payment Form (Fixed height)
+        self.rowconfigure(2, weight=1) # History View (This will expand/shrink)
+        self.rowconfigure(3, weight=0) # Action Buttons (Fixed height at bottom)
 
         self.create_summary_frame()
         self.create_payment_form()
@@ -67,35 +73,35 @@ class RepaymentWindow(tk.Toplevel):
 
     def create_summary_frame(self):
         summary_frame = tk.LabelFrame(self, text=" LOAN SUMMARY ", font=("Segoe UI", 11, "bold"), 
-                                     bg="white", fg=self.colors["primary"], padx=15, pady=15, relief="flat", highlightthickness=1, highlightbackground="#dcdde1")
-        summary_frame.grid(row=0, column=0, padx=20, pady=15, sticky="ew")
+                                     bg="white", fg=self.colors["primary"], padx=15, pady=10, relief="flat", highlightthickness=1, highlightbackground="#dcdde1")
+        summary_frame.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="ew")
         
         summary_frame.columnconfigure((0, 2), weight=1)
         
         data = self.loan_data
         
         tk.Label(summary_frame, text="Customer Name", bg="white", fg="#7f8c8d").grid(row=0, column=0, sticky="w")
-        tk.Label(summary_frame, text=data['customer_name'], bg="white", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, sticky="w", pady=(0,10))
+        tk.Label(summary_frame, text=data['customer_name'], bg="white", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, sticky="w", pady=(0,5))
         
         tk.Label(summary_frame, text="Total Loan Amount", bg="white", fg="#7f8c8d").grid(row=2, column=0, sticky="w")
         tk.Label(summary_frame, text=f"RWF {data['loan_amount']:,.2f}", bg="white", font=("Segoe UI", 12, "bold"), fg=self.colors["primary"]).grid(row=3, column=0, sticky="w")
 
-        stats_frame = tk.Frame(summary_frame, bg="#f1f2f6", padx=10, pady=10)
+        stats_frame = tk.Frame(summary_frame, bg="#f1f2f6", padx=10, pady=5)
         stats_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
         
         tk.Label(stats_frame, text="TOTAL PAID", bg="#f1f2f6", font=("Segoe UI", 9, "bold")).pack()
         self.total_paid_var = tk.StringVar(value="RWF 0.00")
-        tk.Label(stats_frame, textvariable=self.total_paid_var, bg="#f1f2f6", font=("Segoe UI", 16, "bold"), fg=self.colors["success"]).pack()
+        tk.Label(stats_frame, textvariable=self.total_paid_var, bg="#f1f2f6", font=("Segoe UI", 14, "bold"), fg=self.colors["success"]).pack()
         
-        tk.Frame(stats_frame, height=1, bg="#dcdde1").pack(fill="x", pady=5)
+        tk.Frame(stats_frame, height=1, bg="#dcdde1").pack(fill="x", pady=2)
         
         tk.Label(stats_frame, text="REMAINING BALANCE", bg="#f1f2f6", font=("Segoe UI", 9, "bold")).pack()
         self.remaining_var = tk.StringVar(value="RWF 0.00")
-        tk.Label(stats_frame, textvariable=self.remaining_var, bg="#f1f2f6", font=("Segoe UI", 16, "bold"), fg=self.colors["danger"]).pack()
+        tk.Label(stats_frame, textvariable=self.remaining_var, bg="#f1f2f6", font=("Segoe UI", 14, "bold"), fg=self.colors["danger"]).pack()
 
     def create_payment_form(self):
         form_frame = tk.LabelFrame(self, text=" RECORD NEW PAYMENT ", font=("Segoe UI", 10, "bold"), 
-                                   bg="white", fg=self.colors["accent"], padx=15, pady=15, relief="flat", highlightthickness=1, highlightbackground="#dcdde1")
+                                   bg="white", fg=self.colors["accent"], padx=15, pady=10, relief="flat", highlightthickness=1, highlightbackground="#dcdde1")
         form_frame.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
         
         tk.Label(form_frame, text="Amount (RWF)", bg="white", font=("Segoe UI", 9)).grid(row=0, column=0, sticky="w")
@@ -132,7 +138,7 @@ class RepaymentWindow(tk.Toplevel):
 
     def create_payment_view(self):
         view_frame = tk.Frame(self, bg=self.colors["bg"])
-        view_frame.grid(row=2, column=0, padx=20, pady=15, sticky="nsew") 
+        view_frame.grid(row=2, column=0, padx=20, pady=5, sticky="nsew") 
         view_frame.columnconfigure(0, weight=1)
         view_frame.rowconfigure(1, weight=1)
 
@@ -160,6 +166,7 @@ class RepaymentWindow(tk.Toplevel):
         scrollbar.grid(row=1, column=1, sticky="ns")
 
     def create_action_buttons(self):
+        # Action frame is in row 3 which has weight 0 (stays at bottom)
         action_frame = tk.Frame(self, bg=self.colors["bg"])
         action_frame.grid(row=3, column=0, padx=20, pady=15, sticky="ew") 
         
@@ -167,7 +174,7 @@ class RepaymentWindow(tk.Toplevel):
         tk.Button(action_frame, text="← Return to Management", font=("Segoe UI", 10), bg="#95a5a6", fg="white", 
                   relief="flat", padx=15, command=self._handle_go_back, cursor="hand2").pack(side="left")
         
-        # Logout Button (Carrot Orange)
+        # Logout Button
         tk.Button(action_frame, text="🛑 Sign Out System", font=("Segoe UI", 10, "bold"), bg=self.colors["logout"], fg="white", 
                   relief="flat", padx=20, command=self.handle_logout, cursor="hand2").pack(side="left", padx=20)
         
@@ -177,8 +184,8 @@ class RepaymentWindow(tk.Toplevel):
 
     def handle_logout(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
-            self.on_close() # Close current window
-            self.master.destroy() # Close the parent manager window
+            self.on_close() 
+            self.master.destroy() 
             try:
                 subprocess.Popen([sys.executable, "login.py"])
             except Exception as e:
@@ -267,7 +274,6 @@ class RepaymentWindow(tk.Toplevel):
 
         values = self.payments_tree.item(selected)['values']
         
-        # Create Receipt Window
         receipt_win = tk.Toplevel(self)
         receipt_win.title("Payment Receipt")
         receipt_win.geometry("400x550")
