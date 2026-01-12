@@ -116,8 +116,15 @@ class RepaymentWindow(tk.Toplevel):
         tk.Label(form_frame, text="Next Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
         self.next_payment_date_entry = DateEntry(form_frame, width=12, background=self.colors["primary"], 
                                                   foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        next_month = datetime.date.today() + datetime.timedelta(days=30)
-        self.next_payment_date_entry.set_date(next_month)
+        
+        # --- DYNAMIC REPAYMENT DATE LOGIC ---
+        plan = str(self.loan_data.get('payment_plan', 'Monthly')).lower()
+        if "weekly" in plan:
+            suggested_date = datetime.date.today() + datetime.timedelta(days=7)
+        else:
+            suggested_date = datetime.date.today() + datetime.timedelta(days=30)
+            
+        self.next_payment_date_entry.set_date(suggested_date)
         self.next_payment_date_entry.grid(row=1, column=2, padx=(0,10), pady=5)
         
         tk.Label(form_frame, text="Payment Method", bg="white", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w")
