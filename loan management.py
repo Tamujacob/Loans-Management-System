@@ -5,7 +5,7 @@ import subprocess
 import sys
 import os
 import pandas as pd 
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 
 # --- SESSION PERSISTENCE ---
@@ -15,7 +15,6 @@ try:
 except IndexError:
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
-
 
 try:
     from dateutil.relativedelta import relativedelta
@@ -33,10 +32,9 @@ class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
-        self.geometry("1200x650") 
+        self.geometry("1300x650") 
         self.config(bg="#ecf0f1")
         
-        # Set Window Icon
         try:
             self.iconphoto(True, tk.PhotoImage(file="bu logo.png"))
         except:
@@ -69,13 +67,11 @@ class LoanApp(tk.Tk):
 
     def open_loan_application(self):
         try:
-            # Pass role logic to application
             subprocess.Popen([sys.executable, "loan application.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
     def back_to_dashboard_file(self):
-        """Returns to main dashboard while maintaining role/session."""
         try:
             subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
             self.destroy() 
@@ -83,7 +79,6 @@ class LoanApp(tk.Tk):
             messagebox.showerror("Navigation Error", f"Failed: {e}")
 
     def logout_system(self):
-        """Standard logout logic to clear session and return to login screen."""
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
             try:
                 subprocess.Popen([sys.executable, "login.py"])
@@ -123,14 +118,14 @@ class DashboardFrame(tk.Frame):
 
         tk.Label(sidebar, text="FILTER BY STATUS", font=("Arial", 9, "bold"), bg="#34495e", fg="#bdc3c7").pack(pady=(15, 5))
         tk.Button(sidebar, text="All Loans", font=("Arial", 10), bg="#ecf0f1", width=20, command=lambda: self.filter_loans(None)).pack(pady=3)
+        tk.Button(sidebar, text="⚠️ Overdue Loans", font=("Arial", 10, "bold"), bg="#e74c3c", fg="white", width=20, command=lambda: self.filter_loans("Overdue")).pack(pady=3)
         tk.Button(sidebar, text="Pending/New", font=("Arial", 10), bg="#f1c40f", width=20, command=lambda: self.filter_loans("Pending")).pack(pady=3)
         tk.Button(sidebar, text="Under Payment", font=("Arial", 10), bg="#3498db", fg="white", width=20, command=lambda: self.filter_loans("Active")).pack(pady=3)
         tk.Button(sidebar, text="Fully Paid", font=("Arial", 10), bg="#2ecc71", fg="white", width=20, command=lambda: self.filter_loans("Closed")).pack(pady=3)
-        tk.Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#e74c3c", fg="white", width=20, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
+        tk.Button(sidebar, text="Rejected Loans", font=("Arial", 10), bg="#7f8c8d", fg="white", width=20, command=lambda: self.filter_loans("Rejected")).pack(pady=3)
         
-        tk.Button(sidebar, text="♻️ Recycle Bin", font=("Arial", 10, "italic"), bg="#7f8c8d", fg="white", width=20, command=lambda: self.filter_loans("Recycle")).pack(pady=(20, 3))
+        tk.Button(sidebar, text="♻️ Recycle Bin", font=("Arial", 10, "italic"), bg="#bdc3c7", width=20, command=lambda: self.filter_loans("Recycle")).pack(pady=(20, 3))
 
-        
         tk.Button(sidebar, text="🛑 Sign Out System", font=("Arial", 10, "bold"), 
                   bg="#e67e22", fg="white", width=20, height=2,
                   command=controller.logout_system).pack(pady=(20, 10))
@@ -149,18 +144,21 @@ class DashboardFrame(tk.Frame):
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(0, weight=1)
 
-        columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment')
+        columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment', 'days_overdue')
         self.tree = ttk.Treeview(main_content_frame, columns=columns, show='headings')
 
         self.tree.heading('#id', text='ID'); self.tree.heading('customer_name', text='Customer Full Name')
         self.tree.heading('loan_amount', text='Loan Amount'); self.tree.heading('duration', text='Term Duration')
         self.tree.heading('status', text='Status'); self.tree.heading('next_payment', text='Due Date')
+        self.tree.heading('days_overdue', text='Days Overdue')
 
-        self.tree.column('#id', width=60, anchor='center'); self.tree.column('customer_name', width=250)
-        self.tree.column('loan_amount', width=120, anchor='e'); self.tree.column('duration', width=100, anchor='center')
-        self.tree.column('status', width=120, anchor='center'); self.tree.column('next_payment', width=150, anchor='center')
+        self.tree.column('#id', width=60, anchor='center'); self.tree.column('customer_name', width=220)
+        self.tree.column('loan_amount', width=110, anchor='e'); self.tree.column('duration', width=90, anchor='center')
+        self.tree.column('status', width=100, anchor='center'); self.tree.column('next_payment', width=110, anchor='center')
+        self.tree.column('days_overdue', width=120, anchor='center')
 
         # Status Tags
+        self.tree.tag_configure('overdue', background='#f8d7da', foreground='#721c24')
         self.tree.tag_configure('pending', background='#fcf8e3', foreground='#8a6d3b')
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f')
         self.tree.tag_configure('fullypaid', background='#dff0d8', foreground='#3c763d')
@@ -198,7 +196,6 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=10,
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
-    # --- UPDATED EXPORT LOGIC WITH SAVE-AS DIALOG ---
     def open_export_options(self):
         self.export_win = tk.Toplevel(self)
         self.export_win.title("Export Range Selection")
@@ -226,33 +223,25 @@ class DashboardFrame(tk.Frame):
         try:
             start_dt = datetime.strptime(self.start_date_ent.get(), "%Y-%m-%d")
             end_dt = datetime.strptime(self.end_date_ent.get(), "%Y-%m-%d").replace(hour=23, minute=59)
-            
             default_fn = f"Loan_Report_{self.start_date_ent.get()}_to_{self.end_date_ent.get()}.xlsx"
-            file_path = filedialog.asksaveasfilename(
-                initialfile=default_fn,
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Choose where to save your report"
-            )
+            file_path = filedialog.asksaveasfilename(initialfile=default_fn, defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")], title="Choose save location")
 
-            if not file_path: 
-                return
+            if not file_path: return
 
-            query = {
-                "application_date": {"$gte": start_dt, "$lte": end_dt},
-                "is_deleted": {"$ne": True} if self.current_filter != "Recycle" else True
-            }
+            query = {"application_date": {"$gte": start_dt, "$lte": end_dt},
+                     "is_deleted": {"$ne": True} if self.current_filter != "Recycle" else True}
 
-            if self.current_filter and self.current_filter != "Recycle":
-                if self.current_filter == "Active":
-                    query["status"] = {"$in": ["Under Payment", "Approved"]}
-                else:
-                    query["status"] = self.current_filter
+            if self.current_filter and self.current_filter not in ["Recycle", "Overdue"]:
+                query["status"] = {"$in": ["Under Payment", "Approved"]} if self.current_filter == "Active" else self.current_filter
 
             data = list(database.db['loans'].find(query))
+            if self.current_filter == "Overdue":
+                grace_threshold = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+                data = [l for l in data if l.get('next_payment', 'N/A') != 'N/A' and l.get('next_payment') < grace_threshold and l.get('status') != "Fully Paid"]
 
             if not data:
-                messagebox.showwarning("No Results", "No loans found for this date range/status.")
+                messagebox.showwarning("No Results", "No records found.")
                 return
 
             cleaned = []
@@ -261,15 +250,10 @@ class DashboardFrame(tk.Frame):
                 row['_id'] = str(row['_id'])
                 cleaned.append(row)
 
-            df = pd.DataFrame(cleaned)
-            df.to_excel(file_path, index=False)
-
+            pd.DataFrame(cleaned).to_excel(file_path, index=False)
             self.export_win.destroy()
-            if messagebox.askyesno("Success", f"Exported {len(cleaned)} records.\nOpen file now?"):
+            if messagebox.askyesno("Success", "Export complete. Open now?"):
                 os.startfile(file_path)
-
-        except ValueError:
-            messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD")
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
 
@@ -291,42 +275,66 @@ class DashboardFrame(tk.Frame):
         loan_data = database.get_loan_by_id(loan_id)
         if loan_data.get("is_deleted"): return
         
-        duration = loan_data.get('duration', '0 months')
+        plan = loan_data.get('payment_plan', 'Monthly').lower()
         due_date = "N/A"
-        if relativedelta:
-            try:
-                val = int(duration.split()[0])
-                due_date = (datetime.now() + relativedelta(months=val)).strftime("%Y-%m-%d")
-            except: pass
+        try:
+            if "weekly" in plan:
+                due_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+            else:
+                due_date = (datetime.now() + relativedelta(months=1)).strftime("%Y-%m-%d") if relativedelta else (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        except: due_date = datetime.now().strftime("%Y-%m-%d")
 
         database.update_loan_status(loan_id, "Approved")
         database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"next_payment": due_date}})
-        messagebox.showinfo("Success", "Loan Approved")
+        messagebox.showinfo("Success", f"Loan Approved.\nPlan: {plan.capitalize()}\nFirst Due: {due_date}")
         self.filter_loans(self.current_filter)
 
     def fetch_loans(self, status_filter=None):
         query = {"is_deleted": True} if status_filter == "Recycle" else {"is_deleted": {"$ne": True}}
-
-        if status_filter and status_filter != "Recycle":
-            if status_filter == "Active":
-                query["status"] = {"$in": ["Under Payment", "Approved"]}
-            elif status_filter == "Closed":
-                query["status"] = "Fully Paid"
-            else:
-                query["status"] = status_filter
+        if status_filter and status_filter not in ["Recycle", "Overdue"]:
+            if status_filter == "Active": query["status"] = {"$in": ["Under Payment", "Approved"]}
+            elif status_filter == "Closed": query["status"] = "Fully Paid"
+            else: query["status"] = status_filter
         
-        return list(database.db['loans'].find(query))
+        loans = list(database.db['loans'].find(query))
+        if status_filter == "Overdue":
+            grace_threshold = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+            loans = [l for l in loans if l.get('next_payment', 'N/A') != 'N/A' and l.get('next_payment') < grace_threshold and l.get('status') != "Fully Paid"]
+        return loans
 
     def update_treeview(self, loan_list):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
+        for i in self.tree.get_children(): self.tree.delete(i)
+        
+        today = datetime.now()
+        grace_threshold_str = (today - timedelta(days=5)).strftime("%Y-%m-%d")
+
         for loan in loan_list:
             full_id = str(loan.get('_id', ''))
             status = loan.get('status', 'Unknown')
+            next_pay_str = loan.get('next_payment', 'N/A')
+            
+            # --- OVERDUE DAYS CALCULATION ---
+            days_txt = "N/A"
+            tag = status.replace(" ", "").lower()
+            if status != "Fully Paid" and next_pay_str != "N/A":
+                try:
+                    due_date = datetime.strptime(next_pay_str, "%Y-%m-%d")
+                    diff = (today - due_date).days
+                    if diff > 5:
+                        days_txt = f"{diff} Days Late"
+                        tag = 'overdue'
+                    elif diff > 0:
+                        days_txt = "Grace Period"
+                    else:
+                        days_txt = "On Track"
+                except: days_txt = "Error"
+            
+            if loan.get('is_deleted'): tag = 'deleted'
+
             data = (full_id[-4:], loan.get('customer_name', 'N/A'), 
                     f"RWF {loan.get('loan_amount', 0.00):,.2f}", 
-                    loan.get('duration', 'N/A'), status, loan.get('next_payment', 'N/A'))
-            tag = 'deleted' if loan.get('is_deleted') else status.replace(" ", "").lower()
+                    loan.get('duration', 'N/A'), status, next_pay_str, days_txt)
+            
             self.tree.insert('', tk.END, iid=full_id, values=data, tags=(tag,))
 
     def filter_loans(self, status=None):
