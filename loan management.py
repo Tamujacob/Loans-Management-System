@@ -72,11 +72,12 @@ class LoanApp(tk.Tk):
             messagebox.showerror("Error", f"Failed to open loan application: {str(e)}")
 
     def back_to_dashboard_file(self):
+        # --- UPDATED LOGIC TO RECOGNIZE USER ---
         try:
             subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
             self.destroy() 
         except Exception as e:
-            messagebox.showerror("Navigation Error", f"Failed: {e}")
+            messagebox.showerror("Navigation Error", f"Failed to return to dashboard: {e}")
 
     def logout_system(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
