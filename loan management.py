@@ -4,7 +4,7 @@ import database  # MongoDB connection
 import subprocess
 import sys
 import os
-import pandas as pd # Required: pip install pandas openpyxl
+import pandas as pd 
 from datetime import datetime
 from bson.objectid import ObjectId
 
@@ -16,7 +16,7 @@ except IndexError:
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
-# --- SAFE IMPORT FOR DATEUTIL ---
+
 try:
     from dateutil.relativedelta import relativedelta
 except ImportError:
@@ -130,7 +130,7 @@ class DashboardFrame(tk.Frame):
         
         tk.Button(sidebar, text="♻️ Recycle Bin", font=("Arial", 10, "italic"), bg="#7f8c8d", fg="white", width=20, command=lambda: self.filter_loans("Recycle")).pack(pady=(20, 3))
 
-        # --- LOGOUT BUTTON (ORANGE - BELOW RECYCLE BIN) ---
+        
         tk.Button(sidebar, text="🛑 Sign Out System", font=("Arial", 10, "bold"), 
                   bg="#e67e22", fg="white", width=20, height=2,
                   command=controller.logout_system).pack(pady=(20, 10))
