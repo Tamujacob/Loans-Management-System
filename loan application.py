@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog  # Added filedialog
 from docx import Document 
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -151,16 +151,13 @@ class LoanApplicationApp:
 
     # --- LOGIC & FUNCTIONS ---
     def return_to_dashboard(self):
-        """Destroys current window and returns to dashboard while passing the role back."""
         self.root.destroy()
         try:
-            
             subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
         except Exception:
             messagebox.showerror("Error", "Could not find 'dashboard.py'.")
 
     def handle_logout(self):
-        """Confirms logout and returns to login screen, clearing session."""
         if messagebox.askyesno("Logout", "Are you sure you want to sign out?"):
             self.root.destroy()
             try:
@@ -196,6 +193,7 @@ class LoanApplicationApp:
                 "loan_amount": float(self.amount_entry.get().replace(',', '')),
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
+                "payment_plan": self.repayment_method_var.get(), # Included for logic
                 "purpose": self.purpose_text.get("1.0", tk.END).strip(),
                 "return_amount": self.update_return_amount(),
                 "status": "Pending",
@@ -214,6 +212,20 @@ class LoanApplicationApp:
     def print_application(self, custom_id=None):
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
+            
+            # --- ASK WHERE TO SAVE ---
+            default_name = f"Loan_App_{app_id}.docx"
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".docx",
+                initialfile=default_name,
+                filetypes=[("Word Documents", "*.docx"), ("All Files", "*.*")],
+                title="Select where to save the application"
+            )
+
+            # If user cancels, exit function
+            if not file_path:
+                return
+
             doc = Document()
             title = doc.add_heading('OFFICIAL LOAN APPLICATION', 0)
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -235,9 +247,12 @@ class LoanApplicationApp:
             doc.add_heading('Purpose of Loan', level=1)
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
             doc.add_paragraph("\n\nSignature: __________________________")
-            filename = f"Loan_App_{app_id}.docx"
-            doc.save(filename)
-            os.startfile(filename)
+            
+            # Save to chosen path
+            doc.save(file_path)
+            
+            # Open the file automatically
+            os.startfile(file_path)
         except Exception as e:
             messagebox.showerror("Print Error", f"Could not generate Word doc: {e}")
 
