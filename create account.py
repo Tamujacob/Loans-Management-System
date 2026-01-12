@@ -74,7 +74,7 @@ def create_account():
 # --- GUI Setup ---
 window = tk.Tk()
 window.title("Register New System User")
-window.geometry("600x850") # Increased height for more fields
+window.geometry("600x850") 
 window.configure(bg=BG_COLOR)
 
 # Custom Style for Combobox
@@ -83,7 +83,7 @@ style.theme_use('clam')
 style.configure("TCombobox", fieldbackground=WHITE, bordercolor=SOFT_GREY, padding=5)
 
 # --- MAIN CARD ---
-# Increased height to 750 to fit new inputs
+
 card = tk.Frame(window, bg=WHITE, highlightthickness=1, highlightbackground=SOFT_GREY)
 card.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=480, height=750)
 

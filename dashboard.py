@@ -3,7 +3,7 @@ import subprocess
 import sys
 from tkinter import messagebox
 
-# --- 1. CATCH LOGIN ARGUMENTS ---
+# ---  CATCH LOGIN ARGUMENTS ---
 try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
@@ -53,7 +53,7 @@ HOVER_RED = "#e74c3c"
 # --- MAIN WINDOW SETUP ---
 window = Tk()
 window.title(f"Dashboard - {CURRENT_USER_NAME}")
-# Increased height to 850 to ensure everything fits
+
 window.geometry("1100x850") 
 window.configure(bg=BG_LIGHT)
 
@@ -73,7 +73,7 @@ Label(status_frame, text=f"👤 User: {CURRENT_USER_NAME}  |  🔑 Role: {CURREN
       font=("Segoe UI", 10, "bold"), fg=WHITE, bg="#27ae60").pack(pady=5)
 
 # --- MAIN CONTENT ---
-# Reduced top pady from 40 to 20 to pull the whole UI upward
+
 frame = Frame(window, bg=WHITE, relief="flat", padx=50, pady=30, 
               highlightthickness=1, highlightbackground="#dcdde1")
 frame.pack(pady=20)
@@ -106,8 +106,8 @@ if CURRENT_USER_ROLE == "Admin":
 
 Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style).grid(row=current_row, column=0, pady=8)
 
-# --- BIG LOGOUT BUTTON (Adjusted Position) ---
-# footer pady reduced and pack side changed to ensure it's higher up
+# --- LOGOUT BUTTON 
+
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(fill="x", pady=(20, 40)) 
 

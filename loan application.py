@@ -154,7 +154,7 @@ class LoanApplicationApp:
         """Destroys current window and returns to dashboard while passing the role back."""
         self.root.destroy()
         try:
-            # IMPORTANT: Passing session arguments back so the role is not lost
+            
             subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
         except Exception:
             messagebox.showerror("Error", "Could not find 'dashboard.py'.")
