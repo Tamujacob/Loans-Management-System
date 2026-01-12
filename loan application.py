@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog  # Added filedialog
+from tkinter import ttk, messagebox, filedialog
 from docx import Document 
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -131,21 +131,18 @@ class LoanApplicationApp:
         tk.Button(submit_btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
         tk.Button(submit_btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
 
-        # --- FOOTER NAVIGATION (BACK & LOGOUT) ---
+        # --- FOOTER NAVIGATION ---
         footer_nav = tk.Frame(self.scrollable_frame, bg=BG_LIGHT)
         footer_nav.pack(fill="x", pady=(20, 50))
 
-        # Back to Dashboard Button
         back_btn = tk.Button(footer_nav, text="🔙 BACK TO DASHBOARD", bg=PRIMARY_BLUE, fg="white", font=(FONT_FAMILY, 12, "bold"), 
                              bd=0, width=25, height=2, cursor="hand2", command=self.return_to_dashboard)
         back_btn.pack(side="left", padx=(150, 20))
 
-        # Logout Button
         self.logout_btn = tk.Button(footer_nav, text="🛑 LOGOUT SYSTEM", bg=DANGER_RED, fg="white", font=(FONT_FAMILY, 12, "bold"), 
                                     bd=0, width=25, height=2, cursor="hand2", command=self.handle_logout)
         self.logout_btn.pack(side="left", padx=20)
         
-        # Hover Effect
         self.logout_btn.bind("<Enter>", lambda e: self.logout_btn.config(bg=HOVER_RED))
         self.logout_btn.bind("<Leave>", lambda e: self.logout_btn.config(bg=DANGER_RED))
 
@@ -193,7 +190,7 @@ class LoanApplicationApp:
                 "loan_amount": float(self.amount_entry.get().replace(',', '')),
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
-                "payment_plan": self.repayment_method_var.get(), # Included for logic
+                "payment_plan": self.repayment_method_var.get(),
                 "purpose": self.purpose_text.get("1.0", tk.END).strip(),
                 "return_amount": self.update_return_amount(),
                 "status": "Pending",
@@ -210,6 +207,11 @@ class LoanApplicationApp:
             messagebox.showerror("System Error", f"Failed to save: {e}")
 
     def print_application(self, custom_id=None):
+        # --- VALIDATION LOGIC ---
+        if not self.name_entry.get().strip() or not self.amount_entry.get().strip() or not self.purpose_text.get("1.0", tk.END).strip():
+            messagebox.showwarning("Incomplete Form", "Please fill in the Name, Loan Amount, and Purpose before printing.")
+            return
+
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
             
@@ -222,7 +224,6 @@ class LoanApplicationApp:
                 title="Select where to save the application"
             )
 
-            # If user cancels, exit function
             if not file_path:
                 return
 
@@ -248,10 +249,7 @@ class LoanApplicationApp:
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
             doc.add_paragraph("\n\nSignature: __________________________")
             
-            # Save to chosen path
             doc.save(file_path)
-            
-            # Open the file automatically
             os.startfile(file_path)
         except Exception as e:
             messagebox.showerror("Print Error", f"Could not generate Word doc: {e}")
