@@ -5,6 +5,7 @@ import subprocess
 import sys
 import os
 import pandas as pd 
+import bcrypt  # For secure password verification
 from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 
@@ -32,7 +33,6 @@ class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
-        # Optimized for 15.4 inch laptop screens
         self.geometry("1550x850") 
         self.config(bg="#ecf0f1")
         
@@ -166,7 +166,6 @@ class DashboardFrame(tk.Frame):
         self.tree.column('days_remaining', width=110, anchor='center')
         self.tree.column('final_due_date', width=140, anchor='center')
 
-        # Status Tags
         self.tree.tag_configure('overdue', background='#f8d7da', foreground='#721c24')
         self.tree.tag_configure('pending', background='#fcf8e3', foreground='#8a6d3b')
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f')
@@ -198,7 +197,7 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
 
-        # --- PERMANENT DELETE (ADMIN ONLY WITH PASSWORD) ---
+        # Permanent Delete button logic
         if CURRENT_USER_ROLE == "Admin":
             tk.Button(action_frame, text="🧨 PERMANENT DELETE", font=("Arial", 10, "bold"), 
                       bg="black", fg="white", padx=10, 
@@ -212,32 +211,40 @@ class DashboardFrame(tk.Frame):
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
     def permanently_delete_loan(self):
-        """Hard delete from the database with password verification."""
+        """Hard delete verification using the Admin's login password."""
         loan_id = self.tree.focus()
         if not loan_id:
             messagebox.showwarning("Selection Required", "Please select a loan record to delete forever.")
             return
 
-        # 1. Ask for Password
-        pwd = simpledialog.askstring("Admin Verification", "Enter Admin Password to confirm permanent deletion:", show='*')
+        pwd = simpledialog.askstring("Security Verification", "Enter your Login Password to confirm permanent deletion:", show='*')
         
-        # Change "admin123" to your preferred secure password
-        if pwd == "admin123":
-            loan_data = database.get_loan_by_id(loan_id)
-            name = loan_data.get("customer_name", "Unknown")
-            
-            # 2. Final Confirmation
-            confirm = messagebox.askyesno("Confirm Permanent Deletion", 
-                                          f"Password Verified.\n\nAre you sure you want to PERMANENTLY delete the loan for {name}?\nThis action is irreversible.")
-            if confirm:
-                try:
-                    database.db['loans'].delete_one({"_id": ObjectId(loan_id)})
-                    messagebox.showinfo("Deleted", "Record successfully wiped from database.")
-                    self.filter_loans(self.current_filter)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to delete: {e}")
-        elif pwd is not None:
-            messagebox.showerror("Access Denied", "Incorrect Admin Password.")
+        if pwd:
+            try:
+                # Use CURRENT_USER_NAME (passed from login) to find the correct user record
+                user_doc = database.db['users'].find_one({"full_name": CURRENT_USER_NAME})
+                if not user_doc:
+                    user_doc = database.db['users'].find_one({"username": CURRENT_USER_NAME})
+
+                if user_doc:
+                    stored_hash = user_doc.get('password_hash', '').encode('utf-8')
+                    # Verify input password against bcrypt hash from database
+                    if bcrypt.checkpw(pwd.encode('utf-8'), stored_hash):
+                        loan_data = database.get_loan_by_id(loan_id)
+                        name = loan_data.get("customer_name", "Unknown")
+                        
+                        confirm = messagebox.askyesno("Final Confirmation", 
+                                                      f"Password Verified.\n\nAre you sure you want to PERMANENTLY delete the loan for {name}?")
+                        if confirm:
+                            database.db['loans'].delete_one({"_id": ObjectId(loan_id)})
+                            messagebox.showinfo("Deleted", "Record wiped from database.")
+                            self.filter_loans(self.current_filter)
+                    else:
+                        messagebox.showerror("Access Denied", "Invalid Password.")
+                else:
+                    messagebox.showerror("Error", "User record not found for verification.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Verification error: {e}")
 
     def approve_loan(self):
         loan_id = self.tree.focus()
