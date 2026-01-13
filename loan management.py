@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 import database  # MongoDB connection
 import subprocess
 import sys
@@ -145,7 +145,6 @@ class DashboardFrame(tk.Frame):
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(0, weight=1)
 
-        # UPDATED COLUMNS: Added Next Payment, Days Left, and Final Due Date
         columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment', 'days_remaining', 'final_due_date')
         self.tree = ttk.Treeview(main_content_frame, columns=columns, show='headings')
 
@@ -198,6 +197,12 @@ class DashboardFrame(tk.Frame):
         
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
+
+        # --- PERMANENT DELETE (ADMIN ONLY WITH PASSWORD) ---
+        if CURRENT_USER_ROLE == "Admin":
+            tk.Button(action_frame, text="🧨 PERMANENT DELETE", font=("Arial", 10, "bold"), 
+                      bg="black", fg="white", padx=10, 
+                      command=self.permanently_delete_loan).pack(side=tk.LEFT, padx=5)
         
         self.btn_repayment = tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
                   command=self.record_repayment)
@@ -206,29 +211,52 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=10,
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
+    def permanently_delete_loan(self):
+        """Hard delete from the database with password verification."""
+        loan_id = self.tree.focus()
+        if not loan_id:
+            messagebox.showwarning("Selection Required", "Please select a loan record to delete forever.")
+            return
+
+        # 1. Ask for Password
+        pwd = simpledialog.askstring("Admin Verification", "Enter Admin Password to confirm permanent deletion:", show='*')
+        
+        # Change "admin123" to your preferred secure password
+        if pwd == "admin123":
+            loan_data = database.get_loan_by_id(loan_id)
+            name = loan_data.get("customer_name", "Unknown")
+            
+            # 2. Final Confirmation
+            confirm = messagebox.askyesno("Confirm Permanent Deletion", 
+                                          f"Password Verified.\n\nAre you sure you want to PERMANENTLY delete the loan for {name}?\nThis action is irreversible.")
+            if confirm:
+                try:
+                    database.db['loans'].delete_one({"_id": ObjectId(loan_id)})
+                    messagebox.showinfo("Deleted", "Record successfully wiped from database.")
+                    self.filter_loans(self.current_filter)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to delete: {e}")
+        elif pwd is not None:
+            messagebox.showerror("Access Denied", "Incorrect Admin Password.")
+
     def approve_loan(self):
         loan_id = self.tree.focus()
         if not loan_id: return
         loan_data = database.get_loan_by_id(loan_id)
         if loan_data.get("is_deleted"): return
         
-        # --- CALCULATION LOGIC ---
         plan = str(loan_data.get('payment_plan', 'Monthly')).lower()
         duration_val = 1
         try:
-            # Assumes duration is a string like "6 Months" or just "6"
             duration_val = int(''.join(filter(str.isdigit, str(loan_data.get('duration', '1')))))
         except: duration_val = 1
 
         today = datetime.now()
-        
-        # 1. Next Payment Date
         if "weekly" in plan:
             next_due = today + timedelta(days=7)
         else:
             next_due = (today + relativedelta(months=1)) if relativedelta else (today + timedelta(days=30))
             
-        # 2. Final Completion Date (Due Date)
         if relativedelta:
             final_due = today + relativedelta(months=duration_val)
         else:
@@ -247,7 +275,6 @@ class DashboardFrame(tk.Frame):
 
     def update_treeview(self, loan_list):
         for i in self.tree.get_children(): self.tree.delete(i)
-        
         today = datetime.now().date()
 
         for loan in loan_list:
@@ -256,7 +283,6 @@ class DashboardFrame(tk.Frame):
             next_pay_str = loan.get('next_payment', 'N/A')
             final_due_str = loan.get('final_completion_date', 'N/A')
             
-            # --- REAL-TIME COUNTDOWN ---
             days_txt = "N/A"
             tag = status.replace(" ", "").lower()
             
@@ -273,7 +299,6 @@ class DashboardFrame(tk.Frame):
             
             if loan.get('is_deleted'): tag = 'deleted'
 
-            # Build row data
             data = (
                 full_id[-4:], 
                 loan.get('customer_name', 'N/A'), 
@@ -284,7 +309,6 @@ class DashboardFrame(tk.Frame):
                 days_txt,
                 final_due_str
             )
-            
             self.tree.insert('', tk.END, iid=full_id, values=data, tags=(tag,))
 
     def filter_loans(self, status=None):
@@ -350,7 +374,6 @@ class DashboardFrame(tk.Frame):
         loan_data = database.get_loan_by_id(loan_id)
         try:
             from repayment import RepaymentWindow
-            # Dashboard will refresh automatically after payment window closes
             RepaymentWindow(self, loan_data, lambda: self.filter_loans(self.current_filter))
         except Exception as e:
             messagebox.showerror("Error", f"Repayment module error: {e}")
