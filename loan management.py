@@ -16,7 +16,6 @@ except IndexError:
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
-# relativedelta is best for accurate month jumps (e.g., Jan 31 to Feb 28)
 try:
     from dateutil.relativedelta import relativedelta
 except ImportError:
@@ -33,8 +32,8 @@ class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
-        # Geometry optimized for 15.4 inch laptop (High Resolution)
-        self.geometry("1500x850") 
+        # Optimized for 15.4 inch laptop screens
+        self.geometry("1550x850") 
         self.config(bg="#ecf0f1")
         
         try:
@@ -146,32 +145,34 @@ class DashboardFrame(tk.Frame):
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(0, weight=1)
 
-        # Added Next Payment Date and Days Remaining Columns
-        columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment', 'days_remaining')
+        # UPDATED COLUMNS: Added Next Payment, Days Left, and Final Due Date
+        columns = ('#id', 'customer_name', 'loan_amount', 'duration', 'status', 'next_payment', 'days_remaining', 'final_due_date')
         self.tree = ttk.Treeview(main_content_frame, columns=columns, show='headings')
 
         self.tree.heading('#id', text='ID')
-        self.tree.heading('customer_name', text='Customer Full Name')
+        self.tree.heading('customer_name', text='Customer Name')
         self.tree.heading('loan_amount', text='Loan Amount')
-        self.tree.heading('duration', text='Term Duration')
+        self.tree.heading('duration', text='Term')
         self.tree.heading('status', text='Status')
-        self.tree.heading('next_payment', text='Next Payment Date')
-        self.tree.heading('days_remaining', text='Days Remaining')
+        self.tree.heading('next_payment', text='Next Payment')
+        self.tree.heading('days_remaining', text='Days Left')
+        self.tree.heading('final_due_date', text='Loan Completion Date')
 
-        self.tree.column('#id', width=60, anchor='center')
-        self.tree.column('customer_name', width=250)
-        self.tree.column('loan_amount', width=130, anchor='e')
-        self.tree.column('duration', width=100, anchor='center')
-        self.tree.column('status', width=120, anchor='center')
-        self.tree.column('next_payment', width=140, anchor='center')
-        self.tree.column('days_remaining', width=140, anchor='center')
+        self.tree.column('#id', width=50, anchor='center')
+        self.tree.column('customer_name', width=200)
+        self.tree.column('loan_amount', width=120, anchor='e')
+        self.tree.column('duration', width=80, anchor='center')
+        self.tree.column('status', width=100, anchor='center')
+        self.tree.column('next_payment', width=110, anchor='center')
+        self.tree.column('days_remaining', width=110, anchor='center')
+        self.tree.column('final_due_date', width=140, anchor='center')
 
         # Status Tags
         self.tree.tag_configure('overdue', background='#f8d7da', foreground='#721c24')
         self.tree.tag_configure('pending', background='#fcf8e3', foreground='#8a6d3b')
-        self.tree.tag_configure('approved', background='#fae8ff', foreground='#9c27b0')
         self.tree.tag_configure('underpayment', background='#d9edf7', foreground='#31708f')
         self.tree.tag_configure('fullypaid', background='#dff0d8', foreground='#3c763d')
+        self.tree.tag_configure('approved', background='#fae8ff', foreground='#9c27b0')
         self.tree.tag_configure('rejected', background='#fdecea', foreground='#d32f2f')
         self.tree.tag_configure('deleted', background='#f2f2f2', foreground='#95a5a6')
 
@@ -186,57 +187,62 @@ class DashboardFrame(tk.Frame):
         action_frame = tk.Frame(self, bg="#ecf0f1", padx=20, pady=15)
         action_frame.grid(row=2, column=1, sticky="ew")
 
-        tk.Button(action_frame, text="🔍 View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=15, 
+        tk.Button(action_frame, text="🔍 View/Edit Details", font=("Arial", 10), bg="#3498db", fg="white", padx=10, 
                   command=self.view_loan_details).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(action_frame, text="✅ Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=15, 
+        tk.Button(action_frame, text="✅ Approve Loan", font=("Arial", 10, "bold"), bg="#2ecc71", fg="white", padx=10, 
                   command=self.approve_loan).pack(side=tk.LEFT, padx=5)
         
-        tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e67e22", fg="white", padx=15, 
+        tk.Button(action_frame, text="❌ Reject Loan", font=("Arial", 10), bg="#e67e22", fg="white", padx=10, 
                   command=self.reject_loan).pack(side=tk.LEFT, padx=5)
         
-        tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=15, 
+        tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
         
-        self.btn_repayment = tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10, "bold"), bg="#9b59b6", fg="white", padx=15, 
+        self.btn_repayment = tk.Button(action_frame, text="💰 Record Repayment", font=("Arial", 10), bg="#9b59b6", fg="white", padx=10, 
                   command=self.record_repayment)
         self.btn_repayment.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=15,
+        tk.Button(action_frame, text="📥 Export Excel", font=("Arial", 10, "bold"), bg="#27ae60", fg="white", padx=10,
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
     def approve_loan(self):
         loan_id = self.tree.focus()
-        if not loan_id: 
-            messagebox.showwarning("Selection", "Please select a loan to approve.")
-            return
-        
+        if not loan_id: return
         loan_data = database.get_loan_by_id(loan_id)
         if loan_data.get("is_deleted"): return
         
-        # --- LOGIC: SET INITIAL DUE DATE BASED ON PLAN ---
-        plan = str(loan_data.get('payment_plan', 'Monthly')).strip().lower()
+        # --- CALCULATION LOGIC ---
+        plan = str(loan_data.get('payment_plan', 'Monthly')).lower()
+        duration_val = 1
+        try:
+            # Assumes duration is a string like "6 Months" or just "6"
+            duration_val = int(''.join(filter(str.isdigit, str(loan_data.get('duration', '1')))))
+        except: duration_val = 1
+
         today = datetime.now()
         
+        # 1. Next Payment Date
         if "weekly" in plan:
             next_due = today + timedelta(days=7)
         else:
-            # Defaults to Monthly
-            if relativedelta:
-                next_due = today + relativedelta(months=1)
-            else:
-                next_due = today + timedelta(days=30)
-        
-        next_due_str = next_due.strftime("%Y-%m-%d")
+            next_due = (today + relativedelta(months=1)) if relativedelta else (today + timedelta(days=30))
+            
+        # 2. Final Completion Date (Due Date)
+        if relativedelta:
+            final_due = today + relativedelta(months=duration_val)
+        else:
+            final_due = today + timedelta(days=30 * duration_val)
 
-        # Update database
         database.update_loan_status(loan_id, "Approved")
-        database.db['loans'].update_one(
-            {"_id": ObjectId(loan_id)}, 
-            {"$set": {"next_payment": next_due_str}}
-        )
+        database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {
+            "$set": {
+                "next_payment": next_due.strftime("%Y-%m-%d"),
+                "final_completion_date": final_due.strftime("%Y-%m-%d")
+            }
+        })
         
-        messagebox.showinfo("Success", f"Loan Approved!\nPayment Plan: {plan.title()}\nNext Due Date: {next_due_str}")
+        messagebox.showinfo("Approved", f"Loan Approved!\nNext Pay: {next_due.strftime('%Y-%m-%d')}\nFinal Due: {final_due.strftime('%Y-%m-%d')}")
         self.filter_loans(self.current_filter)
 
     def update_treeview(self, loan_list):
@@ -247,32 +253,27 @@ class DashboardFrame(tk.Frame):
         for loan in loan_list:
             full_id = str(loan.get('_id', ''))
             status = loan.get('status', 'Unknown')
-            next_pay_str = loan.get('next_payment', 'To be set')
+            next_pay_str = loan.get('next_payment', 'N/A')
+            final_due_str = loan.get('final_completion_date', 'N/A')
             
-            # --- REAL-TIME DAYS REMAINING CALCULATION ---
+            # --- REAL-TIME COUNTDOWN ---
             days_txt = "N/A"
             tag = status.replace(" ", "").lower()
             
-            if status in ["Approved", "Under Payment"] and next_pay_str not in ["To be set", "N/A", ""]:
+            if status not in ["Fully Paid", "Rejected", "Pending"] and next_pay_str != "N/A":
                 try:
                     due_date = datetime.strptime(next_pay_str, "%Y-%m-%d").date()
-                    delta = (due_date - today).days
-                    
-                    if delta > 0:
-                        days_txt = f"{delta} Days left"
-                    elif delta == 0:
-                        days_txt = "Due Today"
-                    else:
-                        days_txt = f"{abs(delta)} Days Overdue"
-                        tag = "overdue" # Override tag for overdue
-                except Exception as e:
-                    days_txt = "Error"
-            elif status == "Fully Paid":
-                days_txt = "Completed"
-                next_pay_str = "None"
+                    diff = (due_date - today).days
+                    if diff > 0: days_txt = f"{diff} Days left"
+                    elif diff == 0: days_txt = "Due Today"
+                    else: 
+                        days_txt = f"{abs(diff)} Days Overdue"
+                        tag = 'overdue'
+                except: days_txt = "Error"
             
             if loan.get('is_deleted'): tag = 'deleted'
 
+            # Build row data
             data = (
                 full_id[-4:], 
                 loan.get('customer_name', 'N/A'), 
@@ -280,7 +281,8 @@ class DashboardFrame(tk.Frame):
                 loan.get('duration', 'N/A'), 
                 status, 
                 next_pay_str, 
-                days_txt
+                days_txt,
+                final_due_str
             )
             
             self.tree.insert('', tk.END, iid=full_id, values=data, tags=(tag,))
@@ -299,18 +301,9 @@ class DashboardFrame(tk.Frame):
             else: query["status"] = status_filter
         
         loans = list(database.db['loans'].find(query))
-        
-        # Post-fetch filter for Overdue (since it's calculated)
         if status_filter == "Overdue":
-            today = datetime.now().date()
-            overdue_list = []
-            for l in loans:
-                dp = l.get('next_payment', '')
-                if dp and dp not in ["To be set", "N/A"] and l.get('status') != "Fully Paid":
-                    if datetime.strptime(dp, "%Y-%m-%d").date() < today:
-                        overdue_list.append(l)
-            return overdue_list
-            
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            loans = [l for l in loans if l.get('next_payment', 'N/A') != 'N/A' and l.get('next_payment') < today_str and l.get('status') != "Fully Paid"]
         return loans
 
     def search_loans(self):
@@ -357,7 +350,7 @@ class DashboardFrame(tk.Frame):
         loan_data = database.get_loan_by_id(loan_id)
         try:
             from repayment import RepaymentWindow
-            # Passing filter_loans as callback so dashboard refreshes and recalculates dates after payment
+            # Dashboard will refresh automatically after payment window closes
             RepaymentWindow(self, loan_data, lambda: self.filter_loans(self.current_filter))
         except Exception as e:
             messagebox.showerror("Error", f"Repayment module error: {e}")
@@ -368,7 +361,7 @@ class DashboardFrame(tk.Frame):
         self.export_win.geometry("400x320")
         self.export_win.configure(bg="white")
         self.export_win.grab_set()
-        # ... (rest of export logic remains the same)
+
         tk.Label(self.export_win, text="EXCEL EXPORT", font=("Arial", 14, "bold"), bg="white", fg="#27ae60").pack(pady=10)
         tk.Label(self.export_win, text="Start Date (YYYY-MM-DD):", bg="white").pack(pady=(15, 0))
         self.start_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
@@ -378,7 +371,7 @@ class DashboardFrame(tk.Frame):
         self.end_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
         self.end_date_ent.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self.end_date_ent.pack(pady=5)
-        tk.Button(self.export_win, text="SAVE EXCEL", bg="#2ecc71", fg="white", 
+        tk.Button(self.export_win, text="PROCESS EXCEL", bg="#2ecc71", fg="white", 
                   font=("Arial", 11, "bold"), width=25, height=2, bd=0, command=self.process_export).pack(pady=20)
 
     def process_export(self):
@@ -387,9 +380,12 @@ class DashboardFrame(tk.Frame):
             end_dt = datetime.strptime(self.end_date_ent.get(), "%Y-%m-%d").replace(hour=23, minute=59)
             file_path = filedialog.asksaveasfilename(defaultextension=".xlsx")
             if not file_path: return
-            data = list(database.db['loans'].find({"application_date": {"$gte": start_dt, "$lte": end_dt}}))
-            pd.DataFrame(data).to_excel(file_path)
+            query = {"application_date": {"$gte": start_dt, "$lte": end_dt}}
+            data = list(database.db['loans'].find(query))
+            for d in data: d['_id'] = str(d['_id'])
+            pd.DataFrame(data).to_excel(file_path, index=False)
             self.export_win.destroy()
+            os.startfile(file_path)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
