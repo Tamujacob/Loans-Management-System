@@ -109,7 +109,7 @@ class LoanApplicationApp:
         self.duration_combo.grid(row=5, column=0, sticky="ew", padx=15, pady=(0, 20))
         self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
 
-        self.collateral_combo = ttk.Combobox(self.card, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Other"], 
+        self.collateral_combo = ttk.Combobox(self.card, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Machinery and equipment", "Salary assignment"], 
                                            font=(FONT_FAMILY, 13), state="readonly")
         self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
 
