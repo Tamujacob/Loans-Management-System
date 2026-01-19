@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from docx import Document 
-from docx.shared import Pt
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import database 
 import datetime
@@ -216,52 +216,105 @@ class LoanApplicationApp:
             messagebox.showerror("System Error", f"Failed to save: {e}")
 
     def print_application(self, custom_id=None):
-        if not self.name_entry.get().strip() or not self.amount_entry.get().strip() or not self.purpose_text.get("1.0", tk.END).strip():
-            messagebox.showwarning("Incomplete Form", "Please fill in the Name, Loan Amount, and Purpose before printing.")
+        if not self.name_entry.get().strip() or not self.amount_entry.get().strip():
+            messagebox.showwarning("Incomplete Form", "Please fill in Name and Amount before printing.")
             return
 
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
-            
-            default_name = f"Loan_App_{app_id}.docx"
             file_path = filedialog.asksaveasfilename(
                 defaultextension=".docx",
-                initialfile=default_name,
-                filetypes=[("Word Documents", "*.docx"), ("All Files", "*.*")],
-                title="Select where to save the application"
+                initialfile=f"Loan_App_{app_id}.docx",
+                title="Save Structured Loan Document"
             )
 
-            if not file_path:
-                return
+            if not file_path: return
 
             doc = Document()
-            title = doc.add_heading('OFFICIAL LOAN APPLICATION', 0)
+
+            # --- 1. LOGO & HEADER ---
+            try:
+                # Adds logo centered
+                doc.add_picture('bu logo.png', width=Inches(1.2))
+                last_paragraph = doc.paragraphs[-1] 
+                last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            except:
+                pass # Skip if logo not found
+
+            title = doc.add_paragraph()
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            doc.add_heading('Application Details', level=1)
-            table = doc.add_table(rows=1, cols=2)
-            table.style = 'Table Grid'
-            data = [
-                ("Application ID:", app_id),
-                ("Applicant Name:", self.name_entry.get()),
-                ("NIN Number:", self.nin_entry.get()),
-                ("Date:", datetime.datetime.now().strftime("%Y-%m-%d")),
-                ("Loan Amount:", f"{self.amount_entry.get()} RWF"),
-                ("Loan Category:", self.type_combo.get()),
-                ("Collateral:", self.collateral_combo.get()),
-                ("Total Repayment:", self.return_amount_lbl.cget('text'))
-            ]
-            for key, value in data:
-                row_cells = table.add_row().cells
-                row_cells[0].text = key
-                row_cells[1].text = value
-            doc.add_heading('Purpose of Loan', level=1)
-            doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
-            doc.add_paragraph("\n\nSignature: __________________________")
+            run = title.add_run("OFFICIAL LOAN APPLICATION FORM")
+            run.bold = True
+            run.font.size = Pt(20)
+
+            ref_p = doc.add_paragraph()
+            ref_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            ref_p.add_run(f"Reference ID: {app_id} | Date: {datetime.datetime.now().strftime('%Y-%m-%d')}")
             
+            doc.add_paragraph("_" * 75) # Horizontal separator
+
+            # --- 2. APPLICANT DETAILS SECTION ---
+            doc.add_heading('I. APPLICANT INFORMATION', level=2)
+            
+            def add_detail(label, value):
+                p = doc.add_paragraph()
+                p.add_run(f"{label}: ").bold = True
+                p.add_run(str(value))
+                p.paragraph_format.space_after = Pt(2)
+
+            add_detail("Full Name", self.name_entry.get().upper())
+            add_detail("National ID (NIN)", self.nin_entry.get())
+
+            # --- 3. LOAN PARAMETERS SECTION ---
+            doc.add_heading('II. LOAN SPECIFICATIONS', level=2)
+            
+            # Use a table with NO borders for perfect alignment
+            table = doc.add_table(rows=0, cols=2)
+            
+            specs = [
+                ("Requested Amount:", f"{self.amount_entry.get()} RWF"),
+                ("Loan Category:", self.type_combo.get()),
+                ("Repayment Term:", self.duration_combo.get()),
+                ("Collateral Provided:", self.collateral_combo.get()),
+                ("Repayment Cycle:", self.repayment_method_var.get()),
+                ("Interest Rate:", "12% Per Annum")
+            ]
+
+            for label, val in specs:
+                row_cells = table.add_row().cells
+                row_cells[0].text = label
+                row_cells[0].paragraphs[0].runs[0].bold = True
+                row_cells[1].text = val
+
+            # --- 4. FINANCIAL SUMMARY ---
+            doc.add_paragraph()
+            summary = doc.add_paragraph()
+            summary.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            res_run = summary.add_run(f"TOTAL ESTIMATED REPAYMENT: {self.return_amount_lbl.cget('text')}")
+            res_run.bold = True
+            res_run.font.size = Pt(13)
+
+            # --- 5. PURPOSE ---
+            doc.add_heading('III. PURPOSE OF LOAN', level=2)
+            doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
+
+            # --- 6. SIGNATURE SECTION ---
+            doc.add_paragraph("\n" * 2)
+            sig_table = doc.add_table(rows=1, cols=2)
+            sig_table.width = doc.sections[0].page_width
+            
+            left_cell = sig_table.cell(0,0).paragraphs[0]
+            left_cell.add_run("__________________________\nAPPLICANT SIGNATURE")
+            
+            right_cell = sig_table.cell(0,1).paragraphs[0]
+            right_cell.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            right_cell.add_run("__________________________\nOFFICER APPROVAL / DATE")
+
             doc.save(file_path)
             os.startfile(file_path)
+
         except Exception as e:
-            messagebox.showerror("Print Error", f"Could not generate Word doc: {e}")
+            messagebox.showerror("Print Error", f"Failed to generate structured document: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
