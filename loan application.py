@@ -190,7 +190,11 @@ class LoanApplicationApp:
             return
 
         try:
-            loan_id = str(uuid.uuid4())[:8].upper()
+            # --- UPDATED LOAN ID LOGIC ---
+            current_year = datetime.datetime.now().strftime("%Y")
+            unique_suffix = str(uuid.uuid4())[:4].upper()
+            loan_id = f"LOAN-{current_year}-{unique_suffix}"
+            
             loan_data = {
                 "loan_id": loan_id,
                 "customer_name": self.name_entry.get(),
@@ -232,14 +236,13 @@ class LoanApplicationApp:
 
             doc = Document()
 
-            # --- 1. LOGO & HEADER ---
+            # --- LOGO & HEADER ---
             try:
-                # Adds logo centered
                 doc.add_picture('bu logo.png', width=Inches(1.2))
                 last_paragraph = doc.paragraphs[-1] 
                 last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             except:
-                pass # Skip if logo not found
+                pass
 
             title = doc.add_paragraph()
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -251,9 +254,9 @@ class LoanApplicationApp:
             ref_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             ref_p.add_run(f"Reference ID: {app_id} | Date: {datetime.datetime.now().strftime('%Y-%m-%d')}")
             
-            doc.add_paragraph("_" * 75) # Horizontal separator
+            doc.add_paragraph("_" * 75)
 
-            # --- 2. APPLICANT DETAILS SECTION ---
+            # --- DETAILS SECTION ---
             doc.add_heading('I. APPLICANT INFORMATION', level=2)
             
             def add_detail(label, value):
@@ -265,10 +268,7 @@ class LoanApplicationApp:
             add_detail("Full Name", self.name_entry.get().upper())
             add_detail("National ID (NIN)", self.nin_entry.get())
 
-            # --- 3. LOAN PARAMETERS SECTION ---
             doc.add_heading('II. LOAN SPECIFICATIONS', level=2)
-            
-            # Use a table with NO borders for perfect alignment
             table = doc.add_table(rows=0, cols=2)
             
             specs = [
@@ -286,19 +286,15 @@ class LoanApplicationApp:
                 row_cells[0].paragraphs[0].runs[0].bold = True
                 row_cells[1].text = val
 
-            # --- 4. FINANCIAL SUMMARY ---
             doc.add_paragraph()
             summary = doc.add_paragraph()
-            summary.alignment = WD_ALIGN_PARAGRAPH.LEFT
             res_run = summary.add_run(f"TOTAL ESTIMATED REPAYMENT: {self.return_amount_lbl.cget('text')}")
             res_run.bold = True
             res_run.font.size = Pt(13)
 
-            # --- 5. PURPOSE ---
             doc.add_heading('III. PURPOSE OF LOAN', level=2)
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
 
-            # --- 6. SIGNATURE SECTION ---
             doc.add_paragraph("\n" * 2)
             sig_table = doc.add_table(rows=1, cols=2)
             sig_table.width = doc.sections[0].page_width
@@ -312,9 +308,8 @@ class LoanApplicationApp:
 
             doc.save(file_path)
             os.startfile(file_path)
-
         except Exception as e:
-            messagebox.showerror("Print Error", f"Failed to generate structured document: {e}")
+            messagebox.showerror("Print Error", f"Failed to generate document: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
