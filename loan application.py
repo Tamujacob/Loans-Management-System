@@ -88,11 +88,25 @@ class LoanApplicationApp:
         return ent
 
     def build_form(self):
-        self.create_label("FULL NAME OF APPLICANT", 0, 0, colspan=1)
-        self.create_label("NIN NUMBER (NATIONAL ID)", 0, 1)
-        self.name_entry = self.create_entry(1, 0)
-        self.nin_entry = self.create_entry(1, 1)
+        # --- Row 0 & 1: NIN and Name with Search ---
+        self.create_label("NIN NUMBER (NATIONAL ID)", 0, 0)
+        
+        # NIN Entry and Search Button Container
+        nin_container = tk.Frame(self.card, bg="white")
+        nin_container.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 20))
+        
+        self.nin_entry = tk.Entry(nin_container, font=(FONT_FAMILY, 14), bd=0, highlightthickness=1, 
+                                 highlightbackground=BORDER_COLOR)
+        self.nin_entry.pack(side="left", fill="x", expand=True, ipady=12)
+        
+        search_btn = tk.Button(nin_container, text="🔍 FETCH", bg=PRIMARY_BLUE, fg="white", 
+                               font=(FONT_FAMILY, 9, "bold"), command=self.lookup_customer, cursor="hand2")
+        search_btn.pack(side="right", padx=(5, 0), ipady=8)
 
+        self.create_label("FULL NAME OF APPLICANT", 0, 1)
+        self.name_entry = self.create_entry(1, 1)
+
+        # --- Row 2 & 3: Amount and Category ---
         self.create_label("LOAN AMOUNT (RWF)", 2, 0)
         self.create_label("LOAN CATEGORY", 2, 1)
         self.amount_entry = self.create_entry(3, 0)
@@ -102,6 +116,7 @@ class LoanApplicationApp:
                                         font=(FONT_FAMILY, 13), state="readonly")
         self.type_combo.grid(row=3, column=1, sticky="ew", padx=15, pady=(0, 20))
 
+        # --- Row 4 & 5: Duration and Collateral ---
         self.create_label("REPAYMENT DURATION", 4, 0)
         self.create_label("COLLATERAL SECURITY", 4, 1)
         self.duration_combo = ttk.Combobox(self.card, values=["6 months", "1 year", "2 years", "3 years", "5 years"], 
@@ -113,16 +128,19 @@ class LoanApplicationApp:
                                            font=(FONT_FAMILY, 13), state="readonly")
         self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
 
+        # --- Row 6 & 7: Frequency ---
         self.create_label("PAYMENT FREQUENCY", 6, 0)
         radio_frame = tk.Frame(self.card, bg="white")
         radio_frame.grid(row=7, column=0, sticky="w", padx=15)
         tk.Radiobutton(radio_frame, text="Monthly", variable=self.repayment_method_var, value="Monthly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left")
         tk.Radiobutton(radio_frame, text="Weekly", variable=self.repayment_method_var, value="Weekly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left", padx=20)
 
+        # --- Row 8 & 9: Purpose ---
         self.create_label("PURPOSE OF LOAN", 8, 0, colspan=2)
         self.purpose_text = tk.Text(self.card, height=4, font=(FONT_FAMILY, 12), bd=1, relief="solid", padx=10, pady=10)
         self.purpose_text.grid(row=9, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 25))
 
+        # --- Summary and Submit ---
         self.total_frame = tk.Frame(self.card, bg="#f1f2f6", padx=30, pady=25)
         self.total_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
         tk.Label(self.total_frame, text="ESTIMATED TOTAL REPAYMENT (12% Interest)", font=(FONT_FAMILY, 10, "bold"), bg="#f1f2f6", fg=DARK_TEXT).pack(anchor="w")
@@ -131,29 +149,49 @@ class LoanApplicationApp:
 
         tk.Checkbutton(self.card, text="I accept the terms and conditions", variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=11, column=0, columnspan=2, sticky="w", padx=15, pady=20)
 
-        # --- SUBMISSION BUTTONS ---
         submit_btn_frame = tk.Frame(self.card, bg="white")
         submit_btn_frame.grid(row=12, column=0, columnspan=2, pady=(10, 20))
 
         tk.Button(submit_btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
         tk.Button(submit_btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
 
-        # --- FOOTER NAVIGATION ---
         footer_nav = tk.Frame(self.scrollable_frame, bg=BG_LIGHT)
         footer_nav.pack(fill="x", pady=(20, 50))
 
-        back_btn = tk.Button(footer_nav, text="🔙 BACK TO DASHBOARD", bg=PRIMARY_BLUE, fg="white", font=(FONT_FAMILY, 12, "bold"), 
-                             bd=0, width=25, height=2, cursor="hand2", command=self.return_to_dashboard)
-        back_btn.pack(side="left", padx=(150, 20))
+        tk.Button(footer_nav, text="🔙 BACK TO DASHBOARD", bg=PRIMARY_BLUE, fg="white", font=(FONT_FAMILY, 12, "bold"), 
+                  bd=0, width=25, height=2, cursor="hand2", command=self.return_to_dashboard).pack(side="left", padx=(150, 20))
 
         self.logout_btn = tk.Button(footer_nav, text="🛑 LOGOUT SYSTEM", bg=DANGER_RED, fg="white", font=(FONT_FAMILY, 12, "bold"), 
                                     bd=0, width=25, height=2, cursor="hand2", command=self.handle_logout)
         self.logout_btn.pack(side="left", padx=20)
-        
-        self.logout_btn.bind("<Enter>", lambda e: self.logout_btn.config(bg=HOVER_RED))
-        self.logout_btn.bind("<Leave>", lambda e: self.logout_btn.config(bg=DANGER_RED))
 
-    # --- LOGIC & FUNCTIONS ---
+    # --- NEW: CUSTOMER LOOKUP LOGIC ---
+    def lookup_customer(self):
+        nin = self.nin_entry.get().strip()
+        if not nin:
+            messagebox.showwarning("Input Required", "Please enter a NIN number to search.")
+            return
+        
+        try:
+            # Find the most recent loan entry for this NIN
+            prev_record = database.db['loans'].find_one({"nin_number": nin}, sort=[("application_date", -1)])
+            
+            if prev_record:
+                # Auto-fill Name
+                self.name_entry.delete(0, tk.END)
+                self.name_entry.insert(0, prev_record.get("customer_name", ""))
+                
+                # Auto-select Collateral
+                collateral_val = prev_record.get("collateral", "")
+                if collateral_val in self.collateral_combo['values']:
+                    self.collateral_combo.set(collateral_val)
+                
+                messagebox.showinfo("User Found", f"Records found for {prev_record.get('customer_name')}. Basic info filled.")
+            else:
+                messagebox.showinfo("New Customer", "No existing records found for this NIN. Please fill manually.")
+        except Exception as e:
+            messagebox.showerror("Search Error", f"Could not retrieve records: {e}")
+
     def return_to_dashboard(self):
         self.root.destroy()
         try:
@@ -190,7 +228,6 @@ class LoanApplicationApp:
             return
 
         try:
-            # --- UPDATED LOAN ID LOGIC ---
             current_year = datetime.datetime.now().strftime("%Y")
             unique_suffix = str(uuid.uuid4())[:4].upper()
             loan_id = f"LOAN-{current_year}-{unique_suffix}"
@@ -235,8 +272,6 @@ class LoanApplicationApp:
             if not file_path: return
 
             doc = Document()
-
-            # --- LOGO & HEADER ---
             try:
                 doc.add_picture('bu logo.png', width=Inches(1.2))
                 last_paragraph = doc.paragraphs[-1] 
@@ -256,7 +291,6 @@ class LoanApplicationApp:
             
             doc.add_paragraph("_" * 75)
 
-            # --- DETAILS SECTION ---
             doc.add_heading('I. APPLICANT INFORMATION', level=2)
             
             def add_detail(label, value):
