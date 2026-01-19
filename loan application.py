@@ -88,10 +88,8 @@ class LoanApplicationApp:
         return ent
 
     def build_form(self):
-        # --- Row 0 & 1: NIN and Name with Search ---
         self.create_label("NIN NUMBER (NATIONAL ID)", 0, 0)
         
-        # NIN Entry and Search Button Container
         nin_container = tk.Frame(self.card, bg="white")
         nin_container.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 20))
         
@@ -106,7 +104,6 @@ class LoanApplicationApp:
         self.create_label("FULL NAME OF APPLICANT", 0, 1)
         self.name_entry = self.create_entry(1, 1)
 
-        # --- Row 2 & 3: Amount and Category ---
         self.create_label("LOAN AMOUNT (RWF)", 2, 0)
         self.create_label("LOAN CATEGORY", 2, 1)
         self.amount_entry = self.create_entry(3, 0)
@@ -116,7 +113,6 @@ class LoanApplicationApp:
                                         font=(FONT_FAMILY, 13), state="readonly")
         self.type_combo.grid(row=3, column=1, sticky="ew", padx=15, pady=(0, 20))
 
-        # --- Row 4 & 5: Duration and Collateral ---
         self.create_label("REPAYMENT DURATION", 4, 0)
         self.create_label("COLLATERAL SECURITY", 4, 1)
         self.duration_combo = ttk.Combobox(self.card, values=["6 months", "1 year", "2 years", "3 years", "5 years"], 
@@ -128,19 +124,16 @@ class LoanApplicationApp:
                                            font=(FONT_FAMILY, 13), state="readonly")
         self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
 
-        # --- Row 6 & 7: Frequency ---
         self.create_label("PAYMENT FREQUENCY", 6, 0)
         radio_frame = tk.Frame(self.card, bg="white")
         radio_frame.grid(row=7, column=0, sticky="w", padx=15)
         tk.Radiobutton(radio_frame, text="Monthly", variable=self.repayment_method_var, value="Monthly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left")
         tk.Radiobutton(radio_frame, text="Weekly", variable=self.repayment_method_var, value="Weekly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left", padx=20)
 
-        # --- Row 8 & 9: Purpose ---
         self.create_label("PURPOSE OF LOAN", 8, 0, colspan=2)
         self.purpose_text = tk.Text(self.card, height=4, font=(FONT_FAMILY, 12), bd=1, relief="solid", padx=10, pady=10)
         self.purpose_text.grid(row=9, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 25))
 
-        # --- Summary and Submit ---
         self.total_frame = tk.Frame(self.card, bg="#f1f2f6", padx=30, pady=25)
         self.total_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
         tk.Label(self.total_frame, text="ESTIMATED TOTAL REPAYMENT (12% Interest)", font=(FONT_FAMILY, 10, "bold"), bg="#f1f2f6", fg=DARK_TEXT).pack(anchor="w")
@@ -165,30 +158,22 @@ class LoanApplicationApp:
                                     bd=0, width=25, height=2, cursor="hand2", command=self.handle_logout)
         self.logout_btn.pack(side="left", padx=20)
 
-    # --- NEW: CUSTOMER LOOKUP LOGIC ---
     def lookup_customer(self):
         nin = self.nin_entry.get().strip()
         if not nin:
             messagebox.showwarning("Input Required", "Please enter a NIN number to search.")
             return
-        
         try:
-            # Find the most recent loan entry for this NIN
             prev_record = database.db['loans'].find_one({"nin_number": nin}, sort=[("application_date", -1)])
-            
             if prev_record:
-                # Auto-fill Name
                 self.name_entry.delete(0, tk.END)
                 self.name_entry.insert(0, prev_record.get("customer_name", ""))
-                
-                # Auto-select Collateral
                 collateral_val = prev_record.get("collateral", "")
                 if collateral_val in self.collateral_combo['values']:
                     self.collateral_combo.set(collateral_val)
-                
-                messagebox.showinfo("User Found", f"Records found for {prev_record.get('customer_name')}. Basic info filled.")
+                messagebox.showinfo("User Found", f"Records found for {prev_record.get('customer_name')}.")
             else:
-                messagebox.showinfo("New Customer", "No existing records found for this NIN. Please fill manually.")
+                messagebox.showinfo("New Customer", "No existing records found for this NIN.")
         except Exception as e:
             messagebox.showerror("Search Error", f"Could not retrieve records: {e}")
 
@@ -220,22 +205,37 @@ class LoanApplicationApp:
             return 0
 
     def submit_application(self):
-        if not self.name_entry.get() or not self.amount_entry.get() or not self.nin_entry.get():
-            messagebox.showerror("Error", "Please fill in all required fields (Name, NIN, Amount).")
+        current_name = self.name_entry.get().strip()
+        current_nin = self.nin_entry.get().strip()
+        
+        if not current_name or not self.amount_entry.get() or not current_nin:
+            messagebox.showerror("Error", "Please fill in all required fields.")
             return
         if self.terms_var.get() == 0:
             messagebox.showwarning("Terms", "Please accept the terms.")
             return
 
         try:
+            # --- IDENTITY VALIDATION LOGIC ---
+            # Check if this NIN is already registered to someone with a different name
+            existing_user = database.db['loans'].find_one({"nin_number": current_nin})
+            
+            if existing_user:
+                stored_name = existing_user.get("customer_name", "").strip().lower()
+                if stored_name != current_name.lower():
+                    messagebox.showerror("Identity Error", 
+                        f"Registration Failed!\n\nThis NIN ({current_nin}) is already associated with a different name: "
+                        f"'{existing_user.get('customer_name')}'.\n\nOne NIN cannot be used by more than one person.")
+                    return
+
             current_year = datetime.datetime.now().strftime("%Y")
             unique_suffix = str(uuid.uuid4())[:4].upper()
             loan_id = f"LOAN-{current_year}-{unique_suffix}"
             
             loan_data = {
                 "loan_id": loan_id,
-                "customer_name": self.name_entry.get(),
-                "nin_number": self.nin_entry.get(),
+                "customer_name": current_name,
+                "nin_number": current_nin,
                 "loan_amount": float(self.amount_entry.get().replace(',', '')),
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
@@ -258,26 +258,19 @@ class LoanApplicationApp:
 
     def print_application(self, custom_id=None):
         if not self.name_entry.get().strip() or not self.amount_entry.get().strip():
-            messagebox.showwarning("Incomplete Form", "Please fill in Name and Amount before printing.")
+            messagebox.showwarning("Incomplete Form", "Missing info for printing.")
             return
 
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
-            file_path = filedialog.asksaveasfilename(
-                defaultextension=".docx",
-                initialfile=f"Loan_App_{app_id}.docx",
-                title="Save Structured Loan Document"
-            )
-
+            file_path = filedialog.asksaveasfilename(defaultextension=".docx", initialfile=f"Loan_App_{app_id}.docx")
             if not file_path: return
 
             doc = Document()
             try:
                 doc.add_picture('bu logo.png', width=Inches(1.2))
-                last_paragraph = doc.paragraphs[-1] 
-                last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            except:
-                pass
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            except: pass
 
             title = doc.add_paragraph()
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -288,23 +281,16 @@ class LoanApplicationApp:
             ref_p = doc.add_paragraph()
             ref_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             ref_p.add_run(f"Reference ID: {app_id} | Date: {datetime.datetime.now().strftime('%Y-%m-%d')}")
-            
             doc.add_paragraph("_" * 75)
 
             doc.add_heading('I. APPLICANT INFORMATION', level=2)
-            
-            def add_detail(label, value):
-                p = doc.add_paragraph()
-                p.add_run(f"{label}: ").bold = True
-                p.add_run(str(value))
-                p.paragraph_format.space_after = Pt(2)
-
-            add_detail("Full Name", self.name_entry.get().upper())
-            add_detail("National ID (NIN)", self.nin_entry.get())
+            p1 = doc.add_paragraph()
+            p1.add_run("Full Name: ").bold = True; p1.add_run(self.name_entry.get().upper())
+            p2 = doc.add_paragraph()
+            p2.add_run("National ID (NIN): ").bold = True; p2.add_run(self.nin_entry.get())
 
             doc.add_heading('II. LOAN SPECIFICATIONS', level=2)
             table = doc.add_table(rows=0, cols=2)
-            
             specs = [
                 ("Requested Amount:", f"{self.amount_entry.get()} RWF"),
                 ("Loan Category:", self.type_combo.get()),
@@ -316,15 +302,13 @@ class LoanApplicationApp:
 
             for label, val in specs:
                 row_cells = table.add_row().cells
-                row_cells[0].text = label
-                row_cells[0].paragraphs[0].runs[0].bold = True
+                row_cells[0].text = label; row_cells[0].paragraphs[0].runs[0].bold = True
                 row_cells[1].text = val
 
             doc.add_paragraph()
             summary = doc.add_paragraph()
             res_run = summary.add_run(f"TOTAL ESTIMATED REPAYMENT: {self.return_amount_lbl.cget('text')}")
-            res_run.bold = True
-            res_run.font.size = Pt(13)
+            res_run.bold = True; res_run.font.size = Pt(13)
 
             doc.add_heading('III. PURPOSE OF LOAN', level=2)
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
@@ -332,10 +316,7 @@ class LoanApplicationApp:
             doc.add_paragraph("\n" * 2)
             sig_table = doc.add_table(rows=1, cols=2)
             sig_table.width = doc.sections[0].page_width
-            
-            left_cell = sig_table.cell(0,0).paragraphs[0]
-            left_cell.add_run("__________________________\nAPPLICANT SIGNATURE")
-            
+            sig_table.cell(0,0).paragraphs[0].add_run("__________________________\nAPPLICANT SIGNATURE")
             right_cell = sig_table.cell(0,1).paragraphs[0]
             right_cell.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             right_cell.add_run("__________________________\nOFFICER APPROVAL / DATE")
