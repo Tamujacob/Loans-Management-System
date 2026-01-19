@@ -221,14 +221,12 @@ class DashboardFrame(tk.Frame):
         
         if pwd:
             try:
-                # Use CURRENT_USER_NAME (passed from login) to find the correct user record
                 user_doc = database.db['users'].find_one({"full_name": CURRENT_USER_NAME})
                 if not user_doc:
                     user_doc = database.db['users'].find_one({"username": CURRENT_USER_NAME})
 
                 if user_doc:
                     stored_hash = user_doc.get('password_hash', '').encode('utf-8')
-                    # Verify input password against bcrypt hash from database
                     if bcrypt.checkpw(pwd.encode('utf-8'), stored_hash):
                         loan_data = database.get_loan_by_id(loan_id)
                         name = loan_data.get("customer_name", "Unknown")
@@ -369,19 +367,25 @@ class DashboardFrame(tk.Frame):
         database.update_loan_status(loan_id, "Rejected")
         self.filter_loans(self.current_filter)
 
+    # --- UPDATED VIEW DETAILS LOGIC ---
     def view_loan_details(self):
         loan_id = self.tree.focus()
-        if loan_id and LoanDetailsViewer:
-            detail_window = tk.Toplevel(self.controller)
-            LoanDetailsViewer(detail_window, loan_id, lambda: [detail_window.destroy(), self.filter_loans(self.current_filter)])
+        if loan_id:
+            try:
+                # Close this window and open the details window script
+                subprocess.Popen([sys.executable, "view_loan_details.py", loan_id, CURRENT_USER_ROLE, CURRENT_USER_NAME])
+                self.controller.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open details: {e}")
 
+    # --- UPDATED REPAYMENT LOGIC ---
     def record_repayment(self):
         loan_id = self.tree.focus()
         if not loan_id: return
-        loan_data = database.get_loan_by_id(loan_id)
         try:
-            from repayment import RepaymentWindow
-            RepaymentWindow(self, loan_data, lambda: self.filter_loans(self.current_filter))
+            # Close this window and open the repayment window script
+            subprocess.Popen([sys.executable, "repayment.py", loan_id, CURRENT_USER_ROLE, CURRENT_USER_NAME])
+            self.controller.destroy()
         except Exception as e:
             messagebox.showerror("Error", f"Repayment module error: {e}")
 
