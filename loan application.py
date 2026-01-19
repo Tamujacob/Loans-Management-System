@@ -217,7 +217,7 @@ class LoanApplicationApp:
 
         try:
             # --- IDENTITY VALIDATION LOGIC ---
-            # Check if this NIN is already registered to someone with a different name
+            # Check if this NIN is already registered to someone 
             existing_user = database.db['loans'].find_one({"nin_number": current_nin})
             
             if existing_user:
