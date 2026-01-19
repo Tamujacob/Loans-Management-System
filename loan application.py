@@ -88,8 +88,10 @@ class LoanApplicationApp:
         return ent
 
     def build_form(self):
-        self.create_label("FULL NAME OF APPLICANT", 0, 0, colspan=2)
-        self.name_entry = self.create_entry(1, 0, colspan=2)
+        self.create_label("FULL NAME OF APPLICANT", 0, 0, colspan=1)
+        self.create_label("NIN NUMBER (NATIONAL ID)", 0, 1)
+        self.name_entry = self.create_entry(1, 0)
+        self.nin_entry = self.create_entry(1, 1)
 
         self.create_label("LOAN AMOUNT (RWF)", 2, 0)
         self.create_label("LOAN CATEGORY", 2, 1)
@@ -101,32 +103,37 @@ class LoanApplicationApp:
         self.type_combo.grid(row=3, column=1, sticky="ew", padx=15, pady=(0, 20))
 
         self.create_label("REPAYMENT DURATION", 4, 0)
-        self.create_label("PAYMENT FREQUENCY", 4, 1)
+        self.create_label("COLLATERAL SECURITY", 4, 1)
         self.duration_combo = ttk.Combobox(self.card, values=["6 months", "1 year", "2 years", "3 years", "5 years"], 
                                            font=(FONT_FAMILY, 13), state="readonly")
         self.duration_combo.grid(row=5, column=0, sticky="ew", padx=15, pady=(0, 20))
         self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
 
+        self.collateral_combo = ttk.Combobox(self.card, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Other"], 
+                                           font=(FONT_FAMILY, 13), state="readonly")
+        self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
+
+        self.create_label("PAYMENT FREQUENCY", 6, 0)
         radio_frame = tk.Frame(self.card, bg="white")
-        radio_frame.grid(row=5, column=1, sticky="w", padx=15)
+        radio_frame.grid(row=7, column=0, sticky="w", padx=15)
         tk.Radiobutton(radio_frame, text="Monthly", variable=self.repayment_method_var, value="Monthly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left")
         tk.Radiobutton(radio_frame, text="Weekly", variable=self.repayment_method_var, value="Weekly", bg="white", font=(FONT_FAMILY, 12)).pack(side="left", padx=20)
 
-        self.create_label("PURPOSE OF LOAN", 6, 0, colspan=2)
+        self.create_label("PURPOSE OF LOAN", 8, 0, colspan=2)
         self.purpose_text = tk.Text(self.card, height=4, font=(FONT_FAMILY, 12), bd=1, relief="solid", padx=10, pady=10)
-        self.purpose_text.grid(row=7, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 25))
+        self.purpose_text.grid(row=9, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 25))
 
         self.total_frame = tk.Frame(self.card, bg="#f1f2f6", padx=30, pady=25)
-        self.total_frame.grid(row=8, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
+        self.total_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
         tk.Label(self.total_frame, text="ESTIMATED TOTAL REPAYMENT (12% Interest)", font=(FONT_FAMILY, 10, "bold"), bg="#f1f2f6", fg=DARK_TEXT).pack(anchor="w")
         self.return_amount_lbl = tk.Label(self.total_frame, text="0.00 RWF", font=(FONT_FAMILY, 28, "bold"), bg="#f1f2f6", fg=PRIMARY_GREEN)
         self.return_amount_lbl.pack(anchor="w")
 
-        tk.Checkbutton(self.card, text="I accept the terms and conditions", variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=9, column=0, columnspan=2, sticky="w", padx=15, pady=20)
+        tk.Checkbutton(self.card, text="I accept the terms and conditions", variable=self.terms_var, bg="white", font=(FONT_FAMILY, 11)).grid(row=11, column=0, columnspan=2, sticky="w", padx=15, pady=20)
 
         # --- SUBMISSION BUTTONS ---
         submit_btn_frame = tk.Frame(self.card, bg="white")
-        submit_btn_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20))
+        submit_btn_frame.grid(row=12, column=0, columnspan=2, pady=(10, 20))
 
         tk.Button(submit_btn_frame, text="SUBMIT TO DATABASE", bg=PRIMARY_GREEN, fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=20, height=2, cursor="hand2", command=self.submit_application).pack(side="left", padx=10)
         tk.Button(submit_btn_frame, text="PRINT WORD DOC", bg="#3498db", fg="white", font=(FONT_FAMILY, 11, "bold"), bd=0, width=18, height=2, cursor="hand2", command=self.print_application).pack(side="left", padx=10)
@@ -175,8 +182,8 @@ class LoanApplicationApp:
             return 0
 
     def submit_application(self):
-        if not self.name_entry.get() or not self.amount_entry.get():
-            messagebox.showerror("Error", "Please fill in all required fields.")
+        if not self.name_entry.get() or not self.amount_entry.get() or not self.nin_entry.get():
+            messagebox.showerror("Error", "Please fill in all required fields (Name, NIN, Amount).")
             return
         if self.terms_var.get() == 0:
             messagebox.showwarning("Terms", "Please accept the terms.")
@@ -187,9 +194,11 @@ class LoanApplicationApp:
             loan_data = {
                 "loan_id": loan_id,
                 "customer_name": self.name_entry.get(),
+                "nin_number": self.nin_entry.get(),
                 "loan_amount": float(self.amount_entry.get().replace(',', '')),
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
+                "collateral": self.collateral_combo.get(),
                 "payment_plan": self.repayment_method_var.get(),
                 "purpose": self.purpose_text.get("1.0", tk.END).strip(),
                 "return_amount": self.update_return_amount(),
@@ -207,7 +216,6 @@ class LoanApplicationApp:
             messagebox.showerror("System Error", f"Failed to save: {e}")
 
     def print_application(self, custom_id=None):
-        # --- VALIDATION LOGIC ---
         if not self.name_entry.get().strip() or not self.amount_entry.get().strip() or not self.purpose_text.get("1.0", tk.END).strip():
             messagebox.showwarning("Incomplete Form", "Please fill in the Name, Loan Amount, and Purpose before printing.")
             return
@@ -215,7 +223,6 @@ class LoanApplicationApp:
         try:
             app_id = custom_id if custom_id else "TEMP-" + str(uuid.uuid4())[:5]
             
-            # --- ASK WHERE TO SAVE ---
             default_name = f"Loan_App_{app_id}.docx"
             file_path = filedialog.asksaveasfilename(
                 defaultextension=".docx",
@@ -236,9 +243,11 @@ class LoanApplicationApp:
             data = [
                 ("Application ID:", app_id),
                 ("Applicant Name:", self.name_entry.get()),
+                ("NIN Number:", self.nin_entry.get()),
                 ("Date:", datetime.datetime.now().strftime("%Y-%m-%d")),
                 ("Loan Amount:", f"{self.amount_entry.get()} RWF"),
                 ("Loan Category:", self.type_combo.get()),
+                ("Collateral:", self.collateral_combo.get()),
                 ("Total Repayment:", self.return_amount_lbl.cget('text'))
             ]
             for key, value in data:
