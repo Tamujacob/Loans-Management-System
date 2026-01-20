@@ -104,7 +104,7 @@ if CURRENT_USER_ROLE == "Admin":
            **btn_style, command=open_user_management).grid(row=current_row, column=0, pady=8)
     current_row += 1
 
-# Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style).grid(row=current_row, column=0, pady=8)
+Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style).grid(row=current_row, column=0, pady=8)
 
 # --- LOGOUT BUTTON 
 
