@@ -92,7 +92,7 @@ current_row = 0
 modules = [
     ("New Loan Application", PRIMARY_GREEN, open_loan_application),
     ("Loan Management", DARK_TEXT, open_loan_management),
-    ("Loan Repayment", DARK_TEXT, None),
+    #("Loan Repayment", DARK_TEXT, None),
 ]
 
 for text, color, cmd in modules:
