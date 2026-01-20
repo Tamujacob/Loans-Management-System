@@ -350,11 +350,17 @@ class DashboardFrame(tk.Frame):
         database.update_loan_status(loan_id, "Rejected")
         self.filter_loans(self.current_filter)
 
+    # --- UPDATED VIEW DETAILS LOGIC ---
     def view_loan_details(self):
         loan_id = self.tree.focus()
-        if loan_id and LoanDetailsViewer:
-            detail_window = tk.Toplevel(self.controller)
-            LoanDetailsViewer(detail_window, loan_id, lambda: [detail_window.destroy(), self.filter_loans(self.current_filter)])
+        if not loan_id: return
+        try:
+            # Launch view_loan_details script as a new process
+            subprocess.Popen([sys.executable, "view_loan_details.py", loan_id, CURRENT_USER_ROLE, CURRENT_USER_NAME])
+            # Kill the current Management window
+            self.controller.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch loan details: {e}")
 
     # --- UPDATED RECORD REPAYMENT LOGIC ---
     def record_repayment(self):

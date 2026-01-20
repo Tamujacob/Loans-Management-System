@@ -1,25 +1,36 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import sys
+import subprocess
 from datetime import datetime
 from bson.objectid import ObjectId
 
 # --- Import Database Functions ---
-# Added 'db' to the import to handle the update_one logic
 from database import get_loan_by_id, get_payments_by_loan, get_total_paid_for_loan, db
 
+# --- SESSION PERSISTENCE ---
+try:
+    LOAN_ID_ARG = sys.argv[1]
+    CURRENT_USER_ROLE = sys.argv[2]
+    CURRENT_USER_NAME = sys.argv[3]
+except IndexError:
+    # Fallback for manual testing
+    LOAN_ID_ARG = None
+    CURRENT_USER_ROLE = "Staff"
+    CURRENT_USER_NAME = "Guest"
 
 class ViewLoanDetailsPage:
-    def __init__(self, master, loan_id, switch_to_dashboard_callback):
+    def __init__(self, master, loan_id):
         self.master = master
         self.loan_id = loan_id
-        self.switch_to_dashboard_callback = switch_to_dashboard_callback
         
         # New State Variables
         self.is_edit_mode = False
         self.edit_entries = {} 
 
-        for widget in self.master.winfo_children():
-            widget.destroy()
+        self.master.title(f"Loan Details - {loan_id}")
+        self.master.geometry("1000x700")
+        self.master.configure(bg="#f7f9fa")
 
         self.frame = ttk.Frame(self.master, padding="20 20 20 5")
         self.frame.pack(fill='both', expand=True)
@@ -50,19 +61,20 @@ class ViewLoanDetailsPage:
         style = ttk.Style()
         style.theme_use('clam') 
         style.configure('TFrame', background='#f7f9fa')
-        style.configure('Header.TLabel', font=('Arial', 24, 'bold'), foreground='#2c3e50')
-        style.configure('InfoKey.TLabel', font=('Arial', 11, 'bold'), foreground='#555555')
+        style.configure('Header.TLabel', font=('Arial', 24, 'bold'), foreground='#2c3e50', background='#f7f9fa')
+        style.configure('InfoKey.TLabel', font=('Arial', 11, 'bold'), foreground='#555555', background='#ffffff')
         
-        # Style for the Blue Dashboard Button
         style.configure('Dashboard.TButton', font=('Arial', 11, 'bold'), background='#3498db', foreground='white')
         style.map('Dashboard.TButton', background=[('active', '#2980b9')])
 
-        # Style for Edit/Save Toggle Button
         style.configure('Action.TButton', font=('Arial', 11, 'bold'), background='#f39c12', foreground='white')
         style.map('Action.TButton', background=[('active', '#e67e22')])
 
     def _fetch_loan_details(self, loan_id):
-        return get_loan_by_id(loan_id)
+        try:
+            return get_loan_by_id(loan_id)
+        except:
+            return None
 
     def _fetch_payment_history(self, loan_id):
         return get_payments_by_loan(loan_id)
@@ -71,15 +83,14 @@ class ViewLoanDetailsPage:
         header_frame = ttk.Frame(self.frame)
         header_frame.pack(fill='x', pady=(0, 15))
         
-        ttk.Button(header_frame, text="← Back to Dashboard", 
-                   command=self.switch_to_dashboard_callback,
+        ttk.Button(header_frame, text="← Back to Management", 
+                   command=self.back_to_management,
                    style='Dashboard.TButton').pack(side=tk.LEFT, padx=(0, 20))
         
         customer_name = self.loan_data.get('customer_name', 'N/A')
         ttk.Label(header_frame, text=f"Loan File: {customer_name}", 
                   style='Header.TLabel').pack(side=tk.LEFT)
 
-        # The Toggle Edit Button
         self.edit_toggle_btn = ttk.Button(header_frame, text="✎ Edit Details", 
                                           style='Action.TButton', command=self._toggle_edit_mode)
         self.edit_toggle_btn.pack(side=tk.RIGHT)
@@ -87,22 +98,17 @@ class ViewLoanDetailsPage:
         ttk.Separator(self.frame, orient='horizontal').pack(fill='x', pady=(0, 15))
 
     def _toggle_edit_mode(self):
-        """Switches the UI between view-only and editable fields."""
         if not self.is_edit_mode:
-            # Enter Edit Mode
             self.is_edit_mode = True
             self.edit_toggle_btn.config(text="💾 Save Changes")
         else:
-            # Save and Exit Edit Mode
             self._save_loan_updates()
             self.is_edit_mode = False
             self.edit_toggle_btn.config(text="✎ Edit Details")
 
-        # Refresh the tab to show entries or labels
         self._populate_loan_info_tab(self.loan_info_tab)
 
     def _save_loan_updates(self):
-        """Collects data from entry fields and updates the MongoDB database."""
         try:
             updated_data = {
                 "loan_type": self.edit_entries['loan_type'].get(),
@@ -112,13 +118,11 @@ class ViewLoanDetailsPage:
                 "next_payment": self.edit_entries['next_payment'].get()
             }
 
-            # Update database
-            db.loans.update_one({"_id": self.loan_data['_id']}, {"$set": updated_data})
+            db.loans.update_one({"_id": ObjectId(self.loan_id)}, {"$set": updated_data})
             
-            # Refresh local data and summary
             self.loan_data.update(updated_data)
             self._refresh_calculations()
-            self._create_summary_panel() # Re-draw the money boxes
+            self._create_summary_panel() 
             
             messagebox.showinfo("Success", "Loan details updated successfully.")
         except ValueError:
@@ -127,7 +131,6 @@ class ViewLoanDetailsPage:
             messagebox.showerror("System Error", f"Could not update: {e}")
 
     def _create_summary_panel(self):
-        # Container cleanup for refresh
         if hasattr(self, 'summary_container'):
             self.summary_container.destroy()
 
@@ -143,8 +146,8 @@ class ViewLoanDetailsPage:
         for i, (title, val, color) in enumerate(cols):
             f = ttk.Frame(self.summary_container)
             f.grid(row=0, column=i, sticky='nsew', padx=20)
-            ttk.Label(f, text=title, font=('Arial', 10), foreground='#777').pack(anchor='w')
-            lbl = ttk.Label(f, text=val, font=('Arial', 16, 'bold'))
+            ttk.Label(f, text=title, font=('Arial', 10), foreground='#777', background='#ffffff').pack(anchor='w')
+            lbl = ttk.Label(f, text=val, font=('Arial', 16, 'bold'), background='#ffffff')
             if color: lbl.config(foreground=color)
             lbl.pack(anchor='w')
             self.summary_container.columnconfigure(i, weight=1)
@@ -165,7 +168,6 @@ class ViewLoanDetailsPage:
         for widget in parent_frame.winfo_children():
             widget.destroy()
 
-        # Fields mapping: (Display Name, Database Key, Is Editable)
         fields = [
             ("Full Loan ID", "_id", False),
             ("Loan Type", "loan_type", True),
@@ -186,10 +188,9 @@ class ViewLoanDetailsPage:
                 ent.grid(row=i, column=1, sticky='w', padx=10)
                 self.edit_entries[db_key] = ent
             else:
-                ttk.Label(parent_frame, text=str(value), font=('Arial', 11)).grid(row=i, column=1, sticky='w', padx=10)
+                ttk.Label(parent_frame, text=str(value), font=('Arial', 11), background='#ffffff').grid(row=i, column=1, sticky='w', padx=10)
 
     def _populate_payment_history_tab(self, parent_frame):
-        # Treeview Implementation (Same as your original code)
         self.payment_tree = ttk.Treeview(parent_frame, columns=('Date', 'Amount', 'Recorded'), show='headings')
         self.payment_tree.heading('Date', text='Payment Date')
         self.payment_tree.heading('Amount', text='Amount Paid (RWF)', anchor='e')
@@ -208,4 +209,23 @@ class ViewLoanDetailsPage:
 
     def _show_not_found(self):
         ttk.Label(self.frame, text="🛑 Loan Not Found", font=('Arial', 14, 'bold'), foreground='red').pack(pady=50)
-        ttk.Button(self.frame, text="Back", command=self.switch_to_dashboard_callback).pack()
+        ttk.Button(self.frame, text="Back", command=self.back_to_management).pack()
+
+    def back_to_management(self):
+        try:
+            # Restart the management script
+            subprocess.Popen([sys.executable, "loan_management.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
+            self.master.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to return: {e}")
+
+if __name__ == "__main__":
+    if not LOAN_ID_ARG:
+        root = tk.Tk()
+        messagebox.showerror("Error", "No Loan ID provided.")
+        root.destroy()
+        sys.exit()
+
+    root = tk.Tk()
+    app = ViewLoanDetailsPage(root, LOAN_ID_ARG)
+    root.mainloop()
