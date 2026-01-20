@@ -197,7 +197,6 @@ class DashboardFrame(tk.Frame):
         tk.Button(action_frame, text="🗑️ Delete Loan", font=("Arial", 10), bg="#c0392b", fg="white", padx=10, 
                   command=self.delete_loan).pack(side=tk.LEFT, padx=5)
 
-        # Permanent Delete button logic
         if CURRENT_USER_ROLE == "Admin":
             tk.Button(action_frame, text="🧨 PERMANENT DELETE", font=("Arial", 10, "bold"), 
                       bg="black", fg="white", padx=10, 
@@ -211,30 +210,24 @@ class DashboardFrame(tk.Frame):
                   command=self.open_export_options).pack(side=tk.RIGHT, padx=5)
 
     def permanently_delete_loan(self):
-        """Hard delete verification using the Admin's login password."""
         loan_id = self.tree.focus()
         if not loan_id:
             messagebox.showwarning("Selection Required", "Please select a loan record to delete forever.")
             return
 
         pwd = simpledialog.askstring("Security Verification", "Enter your Login Password to confirm permanent deletion:", show='*')
-        
         if pwd:
             try:
-                # Use CURRENT_USER_NAME (passed from login) to find the correct user record
                 user_doc = database.db['users'].find_one({"full_name": CURRENT_USER_NAME})
                 if not user_doc:
                     user_doc = database.db['users'].find_one({"username": CURRENT_USER_NAME})
 
                 if user_doc:
                     stored_hash = user_doc.get('password_hash', '').encode('utf-8')
-                    # Verify input password against bcrypt hash from database
                     if bcrypt.checkpw(pwd.encode('utf-8'), stored_hash):
                         loan_data = database.get_loan_by_id(loan_id)
                         name = loan_data.get("customer_name", "Unknown")
-                        
-                        confirm = messagebox.askyesno("Final Confirmation", 
-                                                      f"Password Verified.\n\nAre you sure you want to PERMANENTLY delete the loan for {name}?")
+                        confirm = messagebox.askyesno("Final Confirmation", f"Are you sure you want to PERMANENTLY delete the loan for {name}?")
                         if confirm:
                             database.db['loans'].delete_one({"_id": ObjectId(loan_id)})
                             messagebox.showinfo("Deleted", "Record wiped from database.")
@@ -242,7 +235,7 @@ class DashboardFrame(tk.Frame):
                     else:
                         messagebox.showerror("Access Denied", "Invalid Password.")
                 else:
-                    messagebox.showerror("Error", "User record not found for verification.")
+                    messagebox.showerror("Error", "User record not found.")
             except Exception as e:
                 messagebox.showerror("Error", f"Verification error: {e}")
 
@@ -276,20 +269,17 @@ class DashboardFrame(tk.Frame):
                 "final_completion_date": final_due.strftime("%Y-%m-%d")
             }
         })
-        
-        messagebox.showinfo("Approved", f"Loan Approved!\nNext Pay: {next_due.strftime('%Y-%m-%d')}\nFinal Due: {final_due.strftime('%Y-%m-%d')}")
+        messagebox.showinfo("Approved", f"Loan Approved!\nNext Pay: {next_due.strftime('%Y-%m-%d')}")
         self.filter_loans(self.current_filter)
 
     def update_treeview(self, loan_list):
         for i in self.tree.get_children(): self.tree.delete(i)
         today = datetime.now().date()
-
         for loan in loan_list:
             full_id = str(loan.get('_id', ''))
             status = loan.get('status', 'Unknown')
             next_pay_str = loan.get('next_payment', 'N/A')
             final_due_str = loan.get('final_completion_date', 'N/A')
-            
             days_txt = "N/A"
             tag = status.replace(" ", "").lower()
             
@@ -305,17 +295,8 @@ class DashboardFrame(tk.Frame):
                 except: days_txt = "Error"
             
             if loan.get('is_deleted'): tag = 'deleted'
-
-            data = (
-                full_id[-4:], 
-                loan.get('customer_name', 'N/A'), 
-                f"RWF {loan.get('loan_amount', 0.00):,.2f}", 
-                loan.get('duration', 'N/A'), 
-                status, 
-                next_pay_str, 
-                days_txt,
-                final_due_str
-            )
+            data = (full_id[-4:], loan.get('customer_name', 'N/A'), f"RWF {loan.get('loan_amount', 0.00):,.2f}", 
+                    loan.get('duration', 'N/A'), status, next_pay_str, days_txt, final_due_str)
             self.tree.insert('', tk.END, iid=full_id, values=data, tags=(tag,))
 
     def filter_loans(self, status=None):
@@ -375,15 +356,17 @@ class DashboardFrame(tk.Frame):
             detail_window = tk.Toplevel(self.controller)
             LoanDetailsViewer(detail_window, loan_id, lambda: [detail_window.destroy(), self.filter_loans(self.current_filter)])
 
+    # --- UPDATED RECORD REPAYMENT LOGIC ---
     def record_repayment(self):
         loan_id = self.tree.focus()
         if not loan_id: return
-        loan_data = database.get_loan_by_id(loan_id)
         try:
-            from repayment import RepaymentWindow
-            RepaymentWindow(self, loan_data, lambda: self.filter_loans(self.current_filter))
+            # Launch repayment script as a new process
+            subprocess.Popen([sys.executable, "repayment.py", loan_id, CURRENT_USER_ROLE, CURRENT_USER_NAME])
+            # Kill the current Management window
+            self.controller.destroy()
         except Exception as e:
-            messagebox.showerror("Error", f"Repayment module error: {e}")
+            messagebox.showerror("Error", f"Failed to launch repayment: {e}")
 
     def open_export_options(self):
         self.export_win = tk.Toplevel(self)
@@ -391,7 +374,6 @@ class DashboardFrame(tk.Frame):
         self.export_win.geometry("400x320")
         self.export_win.configure(bg="white")
         self.export_win.grab_set()
-
         tk.Label(self.export_win, text="EXCEL EXPORT", font=("Arial", 14, "bold"), bg="white", fg="#27ae60").pack(pady=10)
         tk.Label(self.export_win, text="Start Date (YYYY-MM-DD):", bg="white").pack(pady=(15, 0))
         self.start_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
@@ -401,8 +383,7 @@ class DashboardFrame(tk.Frame):
         self.end_date_ent = tk.Entry(self.export_win, font=("Arial", 12), justify="center")
         self.end_date_ent.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self.end_date_ent.pack(pady=5)
-        tk.Button(self.export_win, text="PROCESS EXCEL", bg="#2ecc71", fg="white", 
-                  font=("Arial", 11, "bold"), width=25, height=2, bd=0, command=self.process_export).pack(pady=20)
+        tk.Button(self.export_win, text="PROCESS EXCEL", bg="#2ecc71", fg="white", font=("Arial", 11, "bold"), width=25, height=2, bd=0, command=self.process_export).pack(pady=20)
 
     def process_export(self):
         try:
