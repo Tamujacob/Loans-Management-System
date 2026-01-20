@@ -10,7 +10,7 @@ from bson.objectid import ObjectId
 
 # --- SESSION PERSISTENCE ---
 try:
-    # Check if opened via subprocess with arguments
+    # Check if opened via subprocess with arguments (LoanID, Role, Username)
     if len(sys.argv) > 3:
         LOAN_ID_FROM_ARGS = sys.argv[1]
         CURRENT_USER_ROLE = sys.argv[2]
@@ -24,28 +24,31 @@ except IndexError:
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
-class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
+class RepaymentWindow(tk.Tk): 
     def __init__(self, loan_data=None):
         super().__init__()
         
-        # If no loan_data passed, try to fetch it using LOAN_ID_FROM_ARGS
+        # Resolve database connection and loan data
         if loan_data is None and LOAN_ID_FROM_ARGS:
-            self.loan_data = database.db['loans'].find_one({"_id": ObjectId(LOAN_ID_FROM_ARGS)})
+            try:
+                self.loan_data = database.db['loans'].find_one({"_id": ObjectId(LOAN_ID_FROM_ARGS)})
+            except Exception:
+                self.loan_data = None
         else:
             self.loan_data = loan_data
 
         if not self.loan_data:
-            messagebox.showerror("Error", "No loan data found.")
-            self.destroy()
+            messagebox.showerror("Error", "No loan record found. Returning to management.")
+            self._handle_go_back()
             return
 
         self.loan_id = self.loan_data['_id'] 
         
-        self.title(f"Repayment Management - {self.loan_data['customer_name']} (User: {CURRENT_USER_NAME})")
+        # Formatting UI
+        self.title(f"Repayment Management - {self.loan_data.get('customer_name', 'Unknown')} (User: {CURRENT_USER_NAME})")
         self.geometry("1150x700") 
         self.config(bg="#f8f9fa") 
         
-        # Define Colors
         self.colors = {
             "primary": "#2c3e50",
             "accent": "#3498db",
@@ -57,9 +60,8 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
 
         self.setup_styles()
         
-        # --- GRID LAYOUT CONTROL ---
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1) # History View expands
+        self.rowconfigure(2, weight=1) 
 
         self.create_summary_frame()
         self.create_payment_form()
@@ -85,10 +87,10 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
         
         data = self.loan_data
         tk.Label(summary_frame, text="Customer Name", bg="white", fg="#7f8c8d").grid(row=0, column=0, sticky="w")
-        tk.Label(summary_frame, text=data['customer_name'], bg="white", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, sticky="w", pady=(0,5))
+        tk.Label(summary_frame, text=data.get('customer_name', 'N/A'), bg="white", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, sticky="w", pady=(0,5))
         
         tk.Label(summary_frame, text="Total Loan Amount", bg="white", fg="#7f8c8d").grid(row=2, column=0, sticky="w")
-        tk.Label(summary_frame, text=f"RWF {data['loan_amount']:,.2f}", bg="white", font=("Segoe UI", 12, "bold"), fg=self.colors["primary"]).grid(row=3, column=0, sticky="w")
+        tk.Label(summary_frame, text=f"RWF {float(data.get('loan_amount', 0)):,.2f}", bg="white", font=("Segoe UI", 12, "bold"), fg=self.colors["primary"]).grid(row=3, column=0, sticky="w")
 
         stats_frame = tk.Frame(summary_frame, bg="#f1f2f6", padx=10, pady=5)
         stats_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
@@ -114,7 +116,7 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
         
         tk.Label(form_frame, text="Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=1, sticky="w")
         self.date_entry = DateEntry(form_frame, width=12, background=self.colors["accent"], 
-                                     foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                   foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.date_entry.grid(row=1, column=1, padx=(0,10), pady=5)
         
         tk.Label(form_frame, text="Next Payment Date", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w")
@@ -123,7 +125,6 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
         
         plan = str(self.loan_data.get('payment_plan', 'Monthly')).lower()
         suggested_date = datetime.date.today() + (datetime.timedelta(days=7) if "weekly" in plan else datetime.timedelta(days=30))
-            
         self.next_payment_date_entry.set_date(suggested_date)
         self.next_payment_date_entry.grid(row=1, column=2, padx=(0,10), pady=5)
         
@@ -177,7 +178,10 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
 
     def _handle_go_back(self):
         try:
-            subprocess.Popen([sys.executable, "loan management.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
+            # FIX: Ensure filename matches the actual file name on your disk
+            # If your main file is "loan management.py", change underscore to space.
+            filename = "loan management.py" if os.path.exists("loan management.py") else "loan_management.py"
+            subprocess.Popen([sys.executable, filename, CURRENT_USER_ROLE, CURRENT_USER_NAME])
             self.destroy()
         except Exception as e:
             messagebox.showerror("Navigation Error", f"Failed to open management: {e}")
@@ -204,16 +208,16 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
             
             self.payments_tree.insert("", tk.END, values=(
                 payment.get('payment_date'),
-                f"{payment.get('payment_amount', 0.0):,.2f}",
+                f"{float(payment.get('payment_amount', 0.0)):,.2f}",
                 payment.get('payment_method', 'N/A'),
                 payment.get('received_by', 'N/A'),
                 rec_date
             ))
             
-        loan_amount = float(self.loan_data['loan_amount'])
+        loan_amount = float(self.loan_data.get('loan_amount', 0))
         remaining = loan_amount - total_paid
         self.total_paid_var.set(f"RWF {total_paid:,.2f}")
-        self.remaining_var.set(f"RWF {remaining:,.2f}")
+        self.remaining_var.set(f"RWF {max(0, remaining):,.2f}")
         
         new_status = self.loan_data.get('status', 'Approved')
         if remaining <= 0.01:
@@ -240,7 +244,7 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
 
         payment_data = {
             'loan_id': self.loan_id,
-            'customer_name': self.loan_data['customer_name'],
+            'customer_name': self.loan_data.get('customer_name'),
             'payment_amount': amount,
             'payment_date': payment_date,
             'next_payment_date': next_payment_date,
@@ -277,7 +281,7 @@ class RepaymentWindow(tk.Tk): # Changed to tk.Tk to act as main window
         Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
         -------------------------------
         CUSTOMER DETAILS:
-        Name: {self.loan_data['customer_name']}
+        Name: {self.loan_data.get('customer_name')}
         
         PAYMENT DETAILS:
         Date Paid: {values[0]}
