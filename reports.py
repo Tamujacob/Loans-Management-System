@@ -30,6 +30,14 @@ class ReportsWindow(tk.Tk):
         self.geometry("1250x850")
         self.config(bg="#f4f7f6")
 
+        # --- WINDOW ICON SETUP (REPLACES THE LEAF) ---
+        try:
+            self.icon_img = Image.open("bu logo.png")
+            self.icon_photo = ImageTk.PhotoImage(self.icon_img)
+            self.iconphoto(False, self.icon_photo)
+        except Exception as e:
+            print(f"Window icon could not be loaded: {e}")
+
         # --- COMPANY COLOR PALETTE ---
         self.colors = {
             "primary": "#2ecc71",   # Your Company Green
@@ -43,7 +51,6 @@ class ReportsWindow(tk.Tk):
         self.create_header()
         
         # --- TABBED INTERFACE SETUP ---
-        # Customizing tab style to match company colors
         style = ttk.Style()
         style.theme_use('default')
         style.configure('TNotebook.Tab', font=('Segoe UI', 10, 'bold'), padding=[20, 10])
@@ -71,16 +78,14 @@ class ReportsWindow(tk.Tk):
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        # Logo Integration
+        # Logo Integration in Header
         try:
-            # Assuming your logo is named logo.png in the project folder
-            logo_img = Image.open("logo.png")
+            logo_img = Image.open("bu logo.png")
             logo_img = logo_img.resize((60, 60), Image.LANCZOS)
-            self.logo_photo = ImageTk.PhotoImage(logo_img)
-            logo_label = tk.Label(header, image=self.logo_photo, bg=self.colors["primary"])
+            self.header_logo_photo = ImageTk.PhotoImage(logo_img)
+            logo_label = tk.Label(header, image=self.header_logo_photo, bg=self.colors["primary"])
             logo_label.pack(side="left", padx=(30, 10))
         except Exception:
-            # Fallback icon if logo file is missing
             tk.Label(header, text="💰", font=("Segoe UI", 30), bg=self.colors["primary"], fg="white").pack(side="left", padx=30)
 
         title_frame = tk.Frame(header, bg=self.colors["primary"])
@@ -99,7 +104,6 @@ class ReportsWindow(tk.Tk):
 
     def setup_finance_tab(self):
         """Financial Summary with Cards and Charts"""
-        # Fetch Real Data from MongoDB
         try:
             loans = list(database.db['loans'].find())
             payments = list(database.db['payments'].find())
@@ -109,7 +113,6 @@ class ReportsWindow(tk.Tk):
         except:
             total_lent, total_rec, active_count, loans = 0, 0, 0, []
 
-        # Summary Cards
         card_frame = tk.Frame(self.tab_finance, bg=self.colors["bg"])
         card_frame.pack(fill="x", pady=20, padx=10)
         
@@ -117,15 +120,12 @@ class ReportsWindow(tk.Tk):
         self._build_card(card_frame, "TOTAL REVENUE RECOVERED", f"RWF {total_rec:,.0f}", 1)
         self._build_card(card_frame, "TOTAL ACTIVE LOAN FILES", str(active_count), 2)
 
-        # Charts Area
         chart_container = tk.Frame(self.tab_finance, bg="white", highlightthickness=1, highlightbackground="#dcdde1")
         chart_container.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # Pie Chart: Loan Status
+        fig1, ax1 = plt.subplots(figsize=(4.5, 3.5), dpi=95)
         statuses = [l.get('status', 'Pending') for l in loans]
         status_counts = {s: statuses.count(s) for s in set(statuses)}
-        
-        fig1, ax1 = plt.subplots(figsize=(4.5, 3.5), dpi=95)
         if status_counts:
             ax1.pie(status_counts.values(), labels=status_counts.keys(), autopct='%1.1f%%', 
                     startangle=140, colors=['#3498db', '#2ecc71', '#e74c3c', '#f1c40f'])
@@ -134,7 +134,6 @@ class ReportsWindow(tk.Tk):
         canvas1 = FigureCanvasTkAgg(fig1, master=chart_container)
         canvas1.get_tk_widget().grid(row=0, column=0, padx=20, pady=20)
 
-        # Bar Chart: Recovery comparison
         fig2, ax2 = plt.subplots(figsize=(4.5, 3.5), dpi=95)
         ax2.bar(['Disbursed', 'Recovered'], [total_lent, total_rec], color=[self.colors["dark"], self.colors["primary"]])
         ax2.set_title("Capital Recovery Health", fontdict={'weight':'bold'})
@@ -150,7 +149,6 @@ class ReportsWindow(tk.Tk):
         columns = ("Time", "User", "Action", "Details")
         self.audit_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=20)
         
-        # Styling Treeview
         tree_style = ttk.Style()
         tree_style.configure("Treeview.Heading", font=('Segoe UI', 10, 'bold'))
         
@@ -158,7 +156,6 @@ class ReportsWindow(tk.Tk):
             self.audit_tree.heading(col, text=col)
             self.audit_tree.column(col, width=150)
         
-        # Load Logs from DB
         try:
             logs = list(database.db['logs'].find().sort("timestamp", -1).limit(100))
             for log in logs:
@@ -177,7 +174,6 @@ class ReportsWindow(tk.Tk):
         card = tk.Frame(parent, bg="white", highlightthickness=1, highlightbackground="#dcdde1", padx=20, pady=15)
         card.grid(row=0, column=col, padx=10, sticky="nsew")
         parent.columnconfigure(col, weight=1)
-
         tk.Label(card, text=title, font=("Segoe UI", 9, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
         tk.Label(card, text=value, font=("Segoe UI", 18, "bold"), bg="white", fg=self.colors["dark"]).pack(anchor="w", pady=(5,0))
 
@@ -186,12 +182,10 @@ class ReportsWindow(tk.Tk):
         ctrl_frame = tk.Frame(self, bg=self.colors["white"], pady=20, highlightthickness=1, highlightbackground="#dcdde1")
         ctrl_frame.pack(fill="x", side="bottom")
         
-        # Improved 'Back' button using Corporate Navy/Dark
         tk.Button(ctrl_frame, text="⬅  BACK TO DASHBOARD", font=("Segoe UI", 10, "bold"), 
                   command=self.go_back, bg=self.colors["dark"], fg="white", 
                   relief="flat", width=25, height=2, cursor="hand2").pack(side="left", padx=40)
 
-        # Export button using Corporate Green
         tk.Button(ctrl_frame, text="📥  EXPORT FULL SYSTEM REPORT (PDF)", font=("Segoe UI", 10, "bold"), 
                   command=self.export_to_pdf, bg=self.colors["primary"], fg="white", 
                   relief="flat", width=35, height=2, cursor="hand2").pack(side="right", padx=40)
@@ -207,59 +201,29 @@ class ReportsWindow(tk.Tk):
             filetypes=[("PDF files", "*.pdf")],
             initialfilename=f"BIG_ON_GOLD_Report_{datetime.date.today()}"
         )
-        
-        if not file_path:
-            return
+        if not file_path: return
 
         try:
             c = canvas.Canvas(file_path, pagesize=letter)
-            
-            # PDF Branding
             c.setFont("Helvetica-Bold", 20)
-            c.setFillColorRGB(0.18, 0.8, 0.44) # Primary Green
+            c.setFillColorRGB(0.18, 0.8, 0.44) 
             c.drawString(50, 750, "BIG ON GOLD LOANS - MASTER REPORT")
-            
             c.setFont("Helvetica", 10)
             c.setFillColorRGB(0,0,0)
-            c.drawString(50, 730, f"System User: {CURRENT_USER_NAME} | Role: {CURRENT_USER_ROLE}")
-            c.drawString(50, 715, f"Date Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            c.drawString(50, 730, f"System User: {CURRENT_USER_NAME} | Date Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             c.line(50, 705, 550, 705)
 
-            # Executive Summary Section
             loans = list(database.db['loans'].find())
-            payments = list(database.db['payments'].find())
             total_lent = sum(float(l.get('loan_amount', 0)) for l in loans)
-            total_rec = sum(float(p.get('payment_amount', 0)) for p in payments)
-
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, 680, "1. FINANCIAL OVERVIEW")
             c.setFont("Helvetica", 12)
             c.drawString(70, 660, f"Total Disbursed: RWF {total_lent:,.2f}")
-            c.drawString(70, 640, f"Total Recovered: RWF {total_rec:,.2f}")
-            c.drawString(70, 620, f"Outstanding Balance: RWF {(total_lent - total_rec):,.2f}")
-
-            # Activity Log Section
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(50, 580, "2. RECENT SYSTEM ACTIVITIES")
-            y = 560
-            c.setFont("Helvetica", 9)
-            logs = list(database.db['logs'].find().sort("timestamp", -1).limit(15))
-            
-            for log in logs:
-                if y < 50: break # Page break check
-                log_text = f"[{log.get('timestamp')}] {log.get('user')}: {log.get('action')} - {log.get('details')[:50]}"
-                c.drawString(50, y, log_text)
-                y -= 15
 
             c.save()
             messagebox.showinfo("Success", f"Report saved successfully at:\n{file_path}")
-            
-            # Open automatically
-            if sys.platform == "win32":
-                os.startfile(file_path)
-            else:
-                subprocess.run(["open", file_path] if sys.platform == "darwin" else ["xdg-open", file_path])
-                
+            if sys.platform == "win32": os.startfile(file_path)
+            else: subprocess.run(["open", file_path] if sys.platform == "darwin" else ["xdg-open", file_path])
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to generate PDF: {e}")
 
