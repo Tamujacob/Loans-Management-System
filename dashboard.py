@@ -5,9 +5,11 @@ from tkinter import messagebox
 
 # ---  CATCH LOGIN ARGUMENTS ---
 try:
+    # If launched from login.py, these will be populated
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
 except IndexError:
+    # If run separately/manually, it defaults to Guest
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
@@ -25,6 +27,14 @@ def open_loan_management():
         subprocess.Popen([sys.executable, "loan management.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
     except Exception:
         messagebox.showerror("Error", "Could not find 'loan management.py'.")
+
+def open_reports():
+    """Navigates to reports.py and closes the dashboard"""
+    window.destroy()
+    try:
+        subprocess.Popen([sys.executable, "reports.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
+    except Exception:
+        messagebox.showerror("Error", "Could not find 'reports.py'.")
 
 def handle_logout():
     confirm = messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?")
@@ -104,9 +114,10 @@ if CURRENT_USER_ROLE == "Admin":
            **btn_style, command=open_user_management).grid(row=current_row, column=0, pady=8)
     current_row += 1
 
-Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style).grid(row=current_row, column=0, pady=8)
+# Reports button now linked to open_reports
+Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style, command=open_reports).grid(row=current_row, column=0, pady=8)
 
-# --- LOGOUT BUTTON 
+# --- LOGOUT BUTTON ---
 
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(fill="x", pady=(20, 40)) 
