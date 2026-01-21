@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import Table, TableStyle
 from PIL import Image, ImageTk
+import io
 
 # --- SESSION PERSISTENCE ---
 try:
@@ -30,7 +33,6 @@ class ReportsWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"BIG ON GOLD - Analytics & Logs - {CURRENT_USER_NAME}")
-        # Height optimized to ensure buttons are visible
         self.geometry("1250x750")
         self.config(bg="#f4f7f6")
 
@@ -47,12 +49,11 @@ class ReportsWindow(tk.Tk):
             "dark": "#2c3e50",
             "bg": "#f4f7f6",
             "white": "#ffffff",
-            "accent": "#3498db"  # Re-added missing accent color
+            "accent": "#3498db"
         }
 
         self.create_header()
         
-        # --- TABBED INTERFACE ---
         style = ttk.Style()
         style.theme_use('default')
         style.configure('TNotebook.Tab', font=('Segoe UI', 9, 'bold'), padding=[15, 5])
@@ -90,7 +91,7 @@ class ReportsWindow(tk.Tk):
         title_frame.pack(side="left", pady=5)
         
         tk.Label(title_frame, text="BIG ON GOLD LOANS", font=("Segoe UI", 16, "bold"), 
-                 bg=self.colors["primary"], fg="white").pack(anchor="w")
+                  bg=self.colors["primary"], fg="white").pack(anchor="w")
 
     def _get_filtered_data(self, start_date=None):
         try:
@@ -102,7 +103,6 @@ class ReportsWindow(tk.Tk):
             payments = list(database.db['payments'].find()) 
             
             total_lent = sum(float(l.get('loan_amount', 0)) for l in loans)
-            # Find matching payments for the filtered loans
             total_rec = sum(float(p.get('payment_amount', 0)) for p in payments if any(str(l['_id']) == str(p.get('loan_id')) for l in loans))
             debt = total_lent - total_rec
             active_count = len([l for l in loans if l.get('status') not in ['Fully Paid', 'Rejected']])
@@ -112,7 +112,6 @@ class ReportsWindow(tk.Tk):
             return 0, 0, 0, 0, []
 
     def setup_finance_tab(self):
-        # Control Buttons
         filter_frame = tk.Frame(self.tab_finance, bg=self.colors["bg"])
         filter_frame.pack(fill="x", padx=20, pady=5)
 
@@ -122,11 +121,9 @@ class ReportsWindow(tk.Tk):
         tk.Button(filter_frame, text="Filter by Date (YYYY-MM-DD)", command=self.ask_date_filter, 
                   bg=self.colors["accent"], fg="white", font=("Segoe UI", 9, "bold")).pack(side="left", padx=5)
 
-        # Metrics Cards
         self.card_container = tk.Frame(self.tab_finance, bg=self.colors["bg"])
         self.card_container.pack(fill="x", padx=10)
         
-        # Charts Area
         self.chart_area = tk.Frame(self.tab_finance, bg="white", highlightthickness=1, highlightbackground="#dcdde1")
         self.chart_area.pack(fill="both", expand=True, padx=20, pady=5)
         
@@ -141,15 +138,15 @@ class ReportsWindow(tk.Tk):
         for widget in self.card_container.winfo_children(): widget.destroy()
         for widget in self.chart_area.winfo_children(): widget.destroy()
 
-        lent, rec, debt, count, loans = self._get_filtered_data(date_filter)
+        self.current_data = self._get_filtered_data(date_filter)
+        lent, rec, debt, count, loans = self.current_data
 
         self._build_card(self.card_container, "TOTAL CASH GIVEN OUT", f"RWF {lent:,.0f}", 0)
         self._build_card(self.card_container, "TOTAL RECOVERY", f"RWF {rec:,.0f}", 1)
         self._build_card(self.card_container, "MONEY NOT YET RECOVERED", f"RWF {debt:,.0f}", 2)
 
-        # Matplotlib plotting
-        plt.close('all') # Important to prevent memory leaks and crashes
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3), dpi=90)
+        plt.close('all') 
+        self.fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3), dpi=90)
         
         statuses = [l.get('status', 'Pending') for l in loans]
         status_counts = {s: statuses.count(s) for s in set(statuses)}
@@ -163,7 +160,7 @@ class ReportsWindow(tk.Tk):
         ax2.bar(['Given Out', 'Recovered', 'In Debt'], [lent, rec, debt], color=[self.colors["dark"], self.colors["primary"], "#e74c3c"])
         ax2.set_title("Financial Health")
 
-        canvas_plot = FigureCanvasTkAgg(fig, master=self.chart_area)
+        canvas_plot = FigureCanvasTkAgg(self.fig, master=self.chart_area)
         canvas_plot.get_tk_widget().pack(fill="both", expand=True)
 
     def setup_audit_tab(self):
@@ -187,8 +184,8 @@ class ReportsWindow(tk.Tk):
         query = {}
         if date_filter: query = {"timestamp": {"$regex": f"^{date_filter}"}}
         try:
-            logs = list(database.db['logs'].find(query).sort("timestamp", -1).limit(100))
-            for log in logs:
+            self.logs_data = list(database.db['logs'].find(query).sort("timestamp", -1).limit(100))
+            for log in self.logs_data:
                 self.audit_tree.insert("", "end", values=(log.get('timestamp'), log.get('user'), log.get('action'), log.get('details')))
         except Exception: pass
 
@@ -218,12 +215,71 @@ class ReportsWindow(tk.Tk):
         if not file_path: return
         try:
             c = canvas.Canvas(file_path, pagesize=letter)
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(50, 750, "BIG ON GOLD LOANS - REPORT")
+            width, height = letter
+
+            # 1. Header
+            c.setFont("Helvetica-Bold", 18)
+            c.setFillColor(colors.darkgreen)
+            c.drawString(50, height - 50, "BIG ON GOLD LOANS - ANALYTICS REPORT")
+            c.setFont("Helvetica", 10)
+            c.setFillColor(colors.black)
+            c.drawString(50, height - 65, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            c.line(50, height - 75, width - 50, height - 75)
+
+            # 2. Financial Summary Table
+            lent, rec, debt, count, _ = self.current_data
+            data = [
+                ["Description", "Amount (RWF)"],
+                ["Total Capital Disbursed", f"{lent:,.0f}"],
+                ["Total Revenue Recovered", f"{rec:,.0f}"],
+                ["Money Outstanding", f"{debt:,.0f}"],
+                ["Active Loan Files", str(count)]
+            ]
+            t = Table(data, colWidths=[200, 150])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            t.wrapOn(c, width, height)
+            t.drawOn(c, 50, height - 180)
+
+            # 3. Capture and Save Matplotlib Chart
+            imgdata = io.BytesIO()
+            self.fig.savefig(imgdata, format='png', bbox_inches='tight')
+            imgdata.seek(0)
+            
+            # Use drawInlineImage with the PIL object directly to fix the PhotoImage error
+            chart_img = Image.open(imgdata)
+            c.drawInlineImage(chart_img, 50, height - 480, width=500, height=250)
+
+            # 4. User Audit Logs (New Page)
+            c.showPage()
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, height - 50, "USER ACTIVITY LOGS")
+            c.line(50, height - 60, width - 50, height - 60)
+
+            log_table_data = [["Timestamp", "User", "Action"]]
+            # Safety check for logs_data existence
+            logs_to_print = getattr(self, 'logs_data', [])
+            for log in logs_to_print[:25]: # Limit to first 25 for space
+                log_table_data.append([log.get('timestamp', '')[:19], log.get('user', ''), log.get('action', '')])
+            
+            lt = Table(log_table_data, colWidths=[120, 100, 300])
+            lt.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('FONTSIZE', (0, 0), (-1, -1), 8)
+            ]))
+            lt.wrapOn(c, width, height)
+            lt.drawOn(c, 50, height - (70 + (len(log_table_data)*15)))
+
             c.save()
-            messagebox.showinfo("Success", "Report saved.")
+            messagebox.showinfo("Success", "Report exported successfully with Charts and Logs.")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to create PDF: {str(e)}")
 
 if __name__ == "__main__":
     app = ReportsWindow()
