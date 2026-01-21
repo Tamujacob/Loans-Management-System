@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
+from PIL import Image, ImageTk  # Ensure you have Pillow installed: pip install Pillow
 
 # --- SESSION PERSISTENCE ---
 try:
@@ -26,94 +26,150 @@ except IndexError:
 class ReportsWindow(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"Financial Analytics & Audit Logs - {CURRENT_USER_NAME}")
+        self.title(f"BIG ON GOLD - Analytics & Logs - {CURRENT_USER_NAME}")
         self.geometry("1250x850")
-        self.config(bg="#f1f2f6")
+        self.config(bg="#f4f7f6")
 
+        # --- COMPANY COLOR PALETTE ---
         self.colors = {
-            "primary": "#2c3e50",
-            "accent": "#16a085",
-            "bg": "#f1f2f6",
-            "white": "#ffffff"
+            "primary": "#2ecc71",   # Your Company Green
+            "dark_green": "#27ae60", # Darker Green for status bars
+            "dark": "#2c3e50",      # Navy for text/headers
+            "bg": "#f4f7f6",        # Light grey background
+            "white": "#ffffff",
+            "accent": "#3498db"     # Blue for User Management feel
         }
 
         self.create_header()
         
         # --- TABBED INTERFACE SETUP ---
+        # Customizing tab style to match company colors
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure('TNotebook.Tab', font=('Segoe UI', 10, 'bold'), padding=[20, 10])
+        style.map('TNotebook.Tab', background=[('selected', self.colors["primary"])], 
+                  foreground=[('selected', 'white')])
+
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        self.notebook.pack(fill="both", expand=True, padx=20, pady=10)
 
         # Tab 1: Financial Overview
         self.tab_finance = tk.Frame(self.notebook, bg=self.colors["bg"])
-        self.notebook.add(self.tab_finance, text=" 📊 Financial Analytics ")
+        self.notebook.add(self.tab_finance, text="  📊  FINANCIAL ANALYTICS  ")
 
         # Tab 2: User Activities (Audit Logs)
         self.tab_audit = tk.Frame(self.notebook, bg=self.colors["bg"])
-        self.notebook.add(self.tab_audit, text=" 🔑 User Activities ")
+        self.notebook.add(self.tab_audit, text="  🔑  USER ACTIVITY LOGS  ")
 
         self.setup_finance_tab()
         self.setup_audit_tab()
         self.create_bottom_controls()
 
     def create_header(self):
-        header = tk.Frame(self, bg=self.colors["primary"], height=60)
+        """Header with Logo and Company Branding"""
+        header = tk.Frame(self, bg=self.colors["primary"], height=100)
         header.pack(fill="x")
-        tk.Label(header, text="SYSTEM REPORTS & ACTIVITY LOGS", font=("Segoe UI", 16, "bold"), 
-                 bg=self.colors["primary"], fg="white", pady=15).pack(side="left", padx=20)
-        tk.Label(header, text=f"User: {CURRENT_USER_NAME}", font=("Segoe UI", 10), 
-                 bg=self.colors["primary"], fg="#bdc3c7").pack(side="right", padx=20)
+        header.pack_propagate(False)
+
+        # Logo Integration
+        try:
+            # Assuming your logo is named logo.png in the project folder
+            logo_img = Image.open("logo.png")
+            logo_img = logo_img.resize((60, 60), Image.LANCZOS)
+            self.logo_photo = ImageTk.PhotoImage(logo_img)
+            logo_label = tk.Label(header, image=self.logo_photo, bg=self.colors["primary"])
+            logo_label.pack(side="left", padx=(30, 10))
+        except Exception:
+            # Fallback icon if logo file is missing
+            tk.Label(header, text="💰", font=("Segoe UI", 30), bg=self.colors["primary"], fg="white").pack(side="left", padx=30)
+
+        title_frame = tk.Frame(header, bg=self.colors["primary"])
+        title_frame.pack(side="left", pady=15)
+        
+        tk.Label(title_frame, text="BIG ON GOLD LOANS", font=("Segoe UI", 22, "bold"), 
+                 bg=self.colors["primary"], fg="white").pack(anchor="w")
+        tk.Label(title_frame, text="SYSTEM REPORTS & AUDIT TRAIL", font=("Segoe UI", 10, "bold"), 
+                 bg=self.colors["primary"], fg="#e8f8f0").pack(anchor="w")
+
+        # User Info
+        user_info = tk.Frame(header, bg=self.colors["dark_green"], padx=15, pady=5)
+        user_info.pack(side="right", padx=30)
+        tk.Label(user_info, text=f"👤 {CURRENT_USER_NAME} ({CURRENT_USER_ROLE})", 
+                 font=("Segoe UI", 10, "bold"), bg=self.colors["dark_green"], fg="white").pack()
 
     def setup_finance_tab(self):
-        # Fetch Real Data
-        loans = list(database.db['loans'].find())
-        payments = list(database.db['payments'].find())
-        total_lent = sum(float(l.get('loan_amount', 0)) for l in loans)
-        total_rec = sum(float(p.get('payment_amount', 0)) for p in payments)
+        """Financial Summary with Cards and Charts"""
+        # Fetch Real Data from MongoDB
+        try:
+            loans = list(database.db['loans'].find())
+            payments = list(database.db['payments'].find())
+            total_lent = sum(float(l.get('loan_amount', 0)) for l in loans)
+            total_rec = sum(float(p.get('payment_amount', 0)) for p in payments)
+            active_count = len([l for l in loans if l.get('status') not in ['Fully Paid', 'Rejected']])
+        except:
+            total_lent, total_rec, active_count, loans = 0, 0, 0, []
 
         # Summary Cards
         card_frame = tk.Frame(self.tab_finance, bg=self.colors["bg"])
-        card_frame.pack(fill="x", pady=10)
-        self._build_card(card_frame, "TOTAL DISBURSED", f"RWF {total_lent:,.0f}", 0)
-        self._build_card(card_frame, "TOTAL RECOVERED", f"RWF {total_rec:,.0f}", 1)
+        card_frame.pack(fill="x", pady=20, padx=10)
+        
+        self._build_card(card_frame, "TOTAL CAPITAL DISBURSED", f"RWF {total_lent:,.0f}", 0)
+        self._build_card(card_frame, "TOTAL REVENUE RECOVERED", f"RWF {total_rec:,.0f}", 1)
+        self._build_card(card_frame, "TOTAL ACTIVE LOAN FILES", str(active_count), 2)
 
         # Charts Area
-        chart_frame = tk.Frame(self.tab_finance, bg="white")
-        chart_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        chart_container = tk.Frame(self.tab_finance, bg="white", highlightthickness=1, highlightbackground="#dcdde1")
+        chart_container.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # Pie Chart (Status)
+        # Pie Chart: Loan Status
         statuses = [l.get('status', 'Pending') for l in loans]
         status_counts = {s: statuses.count(s) for s in set(statuses)}
-        fig1, ax1 = plt.subplots(figsize=(4, 3), dpi=100)
-        ax1.pie(status_counts.values(), labels=status_counts.keys(), autopct='%1.1f%%', startangle=140)
-        ax1.set_title("Loan Status Distribution")
         
-        canvas1 = FigureCanvasTkAgg(fig1, master=chart_frame)
-        canvas1.get_tk_widget().grid(row=0, column=0, padx=10, pady=10)
+        fig1, ax1 = plt.subplots(figsize=(4.5, 3.5), dpi=95)
+        if status_counts:
+            ax1.pie(status_counts.values(), labels=status_counts.keys(), autopct='%1.1f%%', 
+                    startangle=140, colors=['#3498db', '#2ecc71', '#e74c3c', '#f1c40f'])
+            ax1.set_title("Loan Status Breakdown", fontdict={'weight':'bold'})
 
-        # Bar Chart
-        fig2, ax2 = plt.subplots(figsize=(4, 3), dpi=100)
-        ax2.bar(['Lent', 'Recovered'], [total_lent, total_rec], color=['#2c3e50', '#16a085'])
-        ax2.set_title("Financial Health")
+        canvas1 = FigureCanvasTkAgg(fig1, master=chart_container)
+        canvas1.get_tk_widget().grid(row=0, column=0, padx=20, pady=20)
+
+        # Bar Chart: Recovery comparison
+        fig2, ax2 = plt.subplots(figsize=(4.5, 3.5), dpi=95)
+        ax2.bar(['Disbursed', 'Recovered'], [total_lent, total_rec], color=[self.colors["dark"], self.colors["primary"]])
+        ax2.set_title("Capital Recovery Health", fontdict={'weight':'bold'})
         
-        canvas2 = FigureCanvasTkAgg(fig2, master=chart_frame)
-        canvas2.get_tk_widget().grid(row=0, column=1, padx=10, pady=10)
+        canvas2 = FigureCanvasTkAgg(fig2, master=chart_container)
+        canvas2.get_tk_widget().grid(row=0, column=1, padx=20, pady=20)
 
     def setup_audit_tab(self):
-        # Activity Table
+        """User Activity Logs Table"""
         tree_frame = tk.Frame(self.tab_audit, bg="white")
         tree_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
         columns = ("Time", "User", "Action", "Details")
-        self.audit_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
-        for col in columns: self.audit_tree.heading(col, text=col)
+        self.audit_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=20)
         
-        # Load Logs (Assuming you have a 'logs' collection)
+        # Styling Treeview
+        tree_style = ttk.Style()
+        tree_style.configure("Treeview.Heading", font=('Segoe UI', 10, 'bold'))
+        
+        for col in columns: 
+            self.audit_tree.heading(col, text=col)
+            self.audit_tree.column(col, width=150)
+        
+        # Load Logs from DB
         try:
-            logs = list(database.db['logs'].find().sort("timestamp", -1).limit(50))
+            logs = list(database.db['logs'].find().sort("timestamp", -1).limit(100))
             for log in logs:
-                self.audit_tree.insert("", "end", values=(log.get('timestamp'), log.get('user'), log.get('action'), log.get('details')))
+                self.audit_tree.insert("", "end", values=(
+                    log.get('timestamp', 'N/A'), 
+                    log.get('user', 'N/A'), 
+                    log.get('action', 'N/A'), 
+                    log.get('details', 'N/A')
+                ))
         except:
-            self.audit_tree.insert("", "end", values=("N/A", "System", "No Logs Found", "Create a 'logs' collection in DB"))
+            self.audit_tree.insert("", "end", values=("N/A", "System", "No Logs", "Connect 'logs' collection"))
 
         self.audit_tree.pack(fill="both", expand=True)
 
@@ -121,29 +177,35 @@ class ReportsWindow(tk.Tk):
         card = tk.Frame(parent, bg="white", highlightthickness=1, highlightbackground="#dcdde1", padx=20, pady=15)
         card.grid(row=0, column=col, padx=10, sticky="nsew")
         parent.columnconfigure(col, weight=1)
+
         tk.Label(card, text=title, font=("Segoe UI", 9, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        tk.Label(card, text=value, font=("Segoe UI", 16, "bold"), bg="white", fg=self.colors["primary"]).pack(anchor="w")
+        tk.Label(card, text=value, font=("Segoe UI", 18, "bold"), bg="white", fg=self.colors["dark"]).pack(anchor="w", pady=(5,0))
 
     def create_bottom_controls(self):
-        ctrl_frame = tk.Frame(self, bg=self.colors["white"], pady=15)
+        """Navigation and Export Buttons"""
+        ctrl_frame = tk.Frame(self, bg=self.colors["white"], pady=20, highlightthickness=1, highlightbackground="#dcdde1")
         ctrl_frame.pack(fill="x", side="bottom")
         
-        tk.Button(ctrl_frame, text="← BACK TO DASHBOARD", font=("Segoe UI", 10), 
-                  command=self.go_back, bg="#95a5a6", fg="white", relief="flat", padx=20).pack(side="left", padx=20)
+        # Improved 'Back' button using Corporate Navy/Dark
+        tk.Button(ctrl_frame, text="⬅  BACK TO DASHBOARD", font=("Segoe UI", 10, "bold"), 
+                  command=self.go_back, bg=self.colors["dark"], fg="white", 
+                  relief="flat", width=25, height=2, cursor="hand2").pack(side="left", padx=40)
 
-        tk.Button(ctrl_frame, text="📥 EXPORT FULL PDF REPORT", font=("Segoe UI", 10, "bold"), 
-                  command=self.export_to_pdf, bg=self.colors["accent"], fg="white", relief="flat", padx=20).pack(side="right", padx=20)
+        # Export button using Corporate Green
+        tk.Button(ctrl_frame, text="📥  EXPORT FULL SYSTEM REPORT (PDF)", font=("Segoe UI", 10, "bold"), 
+                  command=self.export_to_pdf, bg=self.colors["primary"], fg="white", 
+                  relief="flat", width=35, height=2, cursor="hand2").pack(side="right", padx=40)
 
     def go_back(self):
         subprocess.Popen([sys.executable, "dashboard.py", CURRENT_USER_ROLE, CURRENT_USER_NAME])
         self.destroy()
 
     def export_to_pdf(self):
-        # ASK WHERE TO SAVE
+        """Save Report with File Dialog"""
         file_path = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf")],
-            initialfilename=f"Full_System_Report_{datetime.date.today()}"
+            initialfilename=f"BIG_ON_GOLD_Report_{datetime.date.today()}"
         )
         
         if not file_path:
@@ -151,37 +213,55 @@ class ReportsWindow(tk.Tk):
 
         try:
             c = canvas.Canvas(file_path, pagesize=letter)
-            # PDF Content
-            c.setFont("Helvetica-Bold", 18)
+            
+            # PDF Branding
+            c.setFont("Helvetica-Bold", 20)
+            c.setFillColorRGB(0.18, 0.8, 0.44) # Primary Green
             c.drawString(50, 750, "BIG ON GOLD LOANS - MASTER REPORT")
+            
             c.setFont("Helvetica", 10)
-            c.drawString(50, 730, f"Prepared By: {CURRENT_USER_NAME} | Date: {datetime.datetime.now()}")
-            c.line(50, 720, 550, 720)
+            c.setFillColorRGB(0,0,0)
+            c.drawString(50, 730, f"System User: {CURRENT_USER_NAME} | Role: {CURRENT_USER_ROLE}")
+            c.drawString(50, 715, f"Date Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            c.line(50, 705, 550, 705)
 
-            # Data Summary
+            # Executive Summary Section
             loans = list(database.db['loans'].find())
+            payments = list(database.db['payments'].find())
             total_lent = sum(float(l.get('loan_amount', 0)) for l in loans)
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, 690, "FINANCIAL SUMMARY")
-            c.setFont("Helvetica", 11)
-            c.drawString(50, 670, f"Total Capital Lent: RWF {total_lent:,.2f}")
-            c.drawString(50, 650, f"Total Active Loans: {len(loans)}")
+            total_rec = sum(float(p.get('payment_amount', 0)) for p in payments)
 
-            # User Activity Section
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, 610, "RECENT USER ACTIVITIES")
-            y = 590
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 680, "1. FINANCIAL OVERVIEW")
+            c.setFont("Helvetica", 12)
+            c.drawString(70, 660, f"Total Disbursed: RWF {total_lent:,.2f}")
+            c.drawString(70, 640, f"Total Recovered: RWF {total_rec:,.2f}")
+            c.drawString(70, 620, f"Outstanding Balance: RWF {(total_lent - total_rec):,.2f}")
+
+            # Activity Log Section
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 580, "2. RECENT SYSTEM ACTIVITIES")
+            y = 560
             c.setFont("Helvetica", 9)
-            logs = list(database.db['logs'].find().sort("timestamp", -1).limit(10))
+            logs = list(database.db['logs'].find().sort("timestamp", -1).limit(15))
+            
             for log in logs:
-                c.drawString(50, y, f"[{log.get('timestamp')}] {log.get('user')}: {log.get('action')}")
+                if y < 50: break # Page break check
+                log_text = f"[{log.get('timestamp')}] {log.get('user')}: {log.get('action')} - {log.get('details')[:50]}"
+                c.drawString(50, y, log_text)
                 y -= 15
 
             c.save()
-            messagebox.showinfo("Success", "Report Exported Successfully!")
-            os.startfile(file_path) if sys.platform == "win32" else subprocess.run(["open", file_path])
+            messagebox.showinfo("Success", f"Report saved successfully at:\n{file_path}")
+            
+            # Open automatically
+            if sys.platform == "win32":
+                os.startfile(file_path)
+            else:
+                subprocess.run(["open", file_path] if sys.platform == "darwin" else ["xdg-open", file_path])
+                
         except Exception as e:
-            messagebox.showerror("Error", f"PDF Export Failed: {e}")
+            messagebox.showerror("Export Error", f"Failed to generate PDF: {e}")
 
 if __name__ == "__main__":
     app = ReportsWindow()
