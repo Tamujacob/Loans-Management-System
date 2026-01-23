@@ -9,10 +9,13 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 - **💰 Loan Management**: Comprehensive loan lifecycle management
 - **💳 Payment Tracking**: Record payments and track outstanding balances
 - **📊 Interest Calculation**: Automatic interest calculation based on terms
-- **🔍 Search & Filter**: Advanced search capabilities across loans and customers
-- **♻️ Recycle bin**: For keeping deleted loans 
-- ** Prints receipt for loan repayments**
-- ** Asess roles and what they access i.e  staff and admin
+- **📈 Advanced Analytics**: Real-time visual dashboards including "Loan Status Distribution" (Pie Chart) and "Financial Health" (Bar Chart) powered by Matplotlib.
+
+- **📑 Professional Reporting**: Export filtered financial data and visual charts into professional PDF reports using ReportLab.
+
+- **🔍 Search & Filter**: Advanced capabilities to find records by name, status, or specific dates.
+
+- **♻️ Recycle Bin**: A safety feature for keeping and restoring deleted loan records.
 
 ### Technical Features
 - **🛡️ Secure Password Storage**: Bcrypt hashing for enhanced security
