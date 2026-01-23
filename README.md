@@ -5,7 +5,7 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 ## ✨ Features
 
 ### Core Functionality
-- **🔐 User Authentication**: Secure login system with password hashing (bcrypt)
+- **🔐 User Authentication**: Secure logn system with password hashing (bcrypt)
 - **💰 Loan Management**: Comprehensive loan lifecycle management
 - **💳 Payment Tracking**: Record payments and track outstanding balances
 - **📊 Interest Calculation**: Automatic interest calculation based on terms
@@ -23,15 +23,17 @@ A robust desktop application built using **Python** and **Tkinter** for efficien
 
 ## 🏗️ Project Structure
 
+
 Loan-Management-System/
-├── src/ # Source code
-│ ├── login.py # User authentication
-│ ├── dashboard.py # Main application dashboard
-│ ├── loan_management.py # Loan CRUD operations
-│ └── utils/ # Helper functions
-├── database/ # Database connection & models
-├── assets/ # Icons and images
-└── tests/ # Test files
+├── login.py              # Entry point: User authentication & account creation
+├── dashboard.py          # Main navigation hub for the application
+├── reports.py            # Financial analytics, charts, and PDF export logic
+├── loan_management.py    # Loan CRUD operations and status tracking
+├── database.py           # MongoDB connection settings and collection models
+├── repayment.py          # Payment processing and balance calculation
+├── view_loan_details.py  # Expanded view for individual loan files
+├── bu logo.png           # Application branding and assets
+└── requirements.txt      # List of necessary Python libraries
 
 
 ## 🚀 Getting Started
