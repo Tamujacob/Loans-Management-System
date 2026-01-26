@@ -3,7 +3,7 @@ import subprocess
 import sys
 from tkinter import messagebox
 
-# ---  CATCH LOGIN ARGUMENTS ---
+# CATCH LOGIN ARGUMENTS
 try:
     # If launched from login.py, these will be populated
     CURRENT_USER_ROLE = sys.argv[1]
@@ -13,7 +13,7 @@ except IndexError:
     CURRENT_USER_ROLE = "Staff"
     CURRENT_USER_NAME = "Guest"
 
-# --- NAVIGATION FUNCTIONS ---
+# NAVIGATION FUNCTIONS 
 def open_loan_application():
     window.destroy()
     try:
@@ -52,7 +52,7 @@ def open_user_management():
     except Exception:
         messagebox.showerror("Error", "Could not find 'user_management.py'.")
 
-# --- THEME COLORS ---
+#  THEME COLORS 
 PRIMARY_GREEN = "#2ecc71"  
 BG_LIGHT = "#f4f7f6"       
 DARK_TEXT = "#2c3e50"
@@ -60,14 +60,14 @@ WHITE = "#ffffff"
 DANGER_RED = "#c0392b"  
 HOVER_RED = "#e74c3c"   
 
-# --- MAIN WINDOW SETUP ---
+# MAIN WINDOW SETUP 
 window = Tk()
 window.title(f"Dashboard - {CURRENT_USER_NAME}")
 
 window.geometry("1100x850") 
 window.configure(bg=BG_LIGHT)
 
-# --- HEADER SECTION ---
+# HEADER SECTION 
 header = Frame(window, bg=PRIMARY_GREEN, height=140)
 header.pack(fill="x", side="top")
 header.pack_propagate(False)
@@ -82,7 +82,7 @@ status_frame.pack(side="bottom", fill="x")
 Label(status_frame, text=f"👤 User: {CURRENT_USER_NAME}  |  🔑 Role: {CURRENT_USER_ROLE}", 
       font=("Segoe UI", 10, "bold"), fg=WHITE, bg="#27ae60").pack(pady=5)
 
-# --- MAIN CONTENT ---
+#  MAIN CONTENT
 
 frame = Frame(window, bg=WHITE, relief="flat", padx=50, pady=30, 
               highlightthickness=1, highlightbackground="#dcdde1")
@@ -97,7 +97,7 @@ btn_style = {
     "bd": 0
 }
 
-# --- MENU BUTTONS ---
+#  MENU BUTTONS
 current_row = 0
 modules = [
     ("New Loan Application", PRIMARY_GREEN, open_loan_application),
@@ -117,7 +117,7 @@ if CURRENT_USER_ROLE == "Admin":
 # Reports button now linked to open_reports
 Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style, command=open_reports).grid(row=current_row, column=0, pady=8)
 
-# --- LOGOUT BUTTON ---
+# LOGOUT BUTTON 
 
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(fill="x", pady=(20, 40)) 
