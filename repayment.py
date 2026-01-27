@@ -8,7 +8,7 @@ import subprocess
 import os
 from bson.objectid import ObjectId
 
-# --- SESSION PERSISTENCE ---
+# SESSION PERSISTENCE 
 try:
     # Check if opened via subprocess with arguments (LoanID, Role, Username)
     if len(sys.argv) > 3:
