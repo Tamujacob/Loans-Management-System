@@ -116,12 +116,12 @@ class LoanApplicationApp:
         self.create_label("REPAYMENT DURATION", 4, 0)
         self.create_label("COLLATERAL SECURITY", 4, 1)
         self.duration_combo = ttk.Combobox(self.card, values=["6 months", "1 year", "2 years", "3 years", "5 years"], 
-                                           font=(FONT_FAMILY, 13), state="readonly")
+                                            font=(FONT_FAMILY, 13), state="readonly")
         self.duration_combo.grid(row=5, column=0, sticky="ew", padx=15, pady=(0, 20))
         self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
 
         self.collateral_combo = ttk.Combobox(self.card, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Machinery and equipment", "Salary assignment"], 
-                                           font=(FONT_FAMILY, 13), state="readonly")
+                                            font=(FONT_FAMILY, 13), state="readonly")
         self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
 
         self.create_label("PAYMENT FREQUENCY", 6, 0)
@@ -186,6 +186,8 @@ class LoanApplicationApp:
 
     def handle_logout(self):
         if messagebox.askyesno("Logout", "Are you sure you want to sign out?"):
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out from Application form")
             self.root.destroy()
             try:
                 subprocess.Popen([sys.executable, "login.py"])
@@ -194,7 +196,8 @@ class LoanApplicationApp:
 
     def update_return_amount(self, event=None):
         try:
-            amt = float(self.amount_entry.get().replace(',', ''))
+            amt_str = self.amount_entry.get().replace(',', '')
+            amt = float(amt_str) if amt_str else 0
             dur = self.duration_combo.get()
             years = int(dur.split()[0]) if "year" in dur else int(dur.split()[0]) / 12.0
             total = amt + (amt * 0.12 * years)
@@ -216,8 +219,6 @@ class LoanApplicationApp:
             return
 
         try:
-            # --- IDENTITY VALIDATION LOGIC ---
-            # Check if this NIN is already registered to someone 
             existing_user = database.db['loans'].find_one({"nin_number": current_nin})
             
             if existing_user:
@@ -247,6 +248,10 @@ class LoanApplicationApp:
                 "application_date": datetime.datetime.now()
             }
             database.db['loans'].insert_one(loan_data)
+            
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "New Loan Application", f"Submitted loan {loan_id} for {current_name}")
+            
             messagebox.showinfo("Success", f"Application {loan_id} saved to Database!")
             
             if messagebox.askyesno("Print", "Generate Word Doc for signing?"):
@@ -322,6 +327,10 @@ class LoanApplicationApp:
             right_cell.add_run("__________________________\nOFFICER APPROVAL / DATE")
 
             doc.save(file_path)
+            
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "Print Application", f"Generated Word document for {self.name_entry.get()}")
+            
             os.startfile(file_path)
         except Exception as e:
             messagebox.showerror("Print Error", f"Failed to generate document: {e}")
