@@ -178,8 +178,6 @@ class RepaymentWindow(tk.Tk):
 
     def _handle_go_back(self):
         try:
-            # FIX: Ensure filename matches the actual file name on your disk
-            # If your main file is "loan management.py", change underscore to space.
             filename = "loan management.py" if os.path.exists("loan management.py") else "loan_management.py"
             subprocess.Popen([sys.executable, filename, CURRENT_USER_ROLE, CURRENT_USER_NAME])
             self.destroy()
@@ -188,6 +186,8 @@ class RepaymentWindow(tk.Tk):
 
     def handle_logout(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out from Repayment screen")
             try:
                 subprocess.Popen([sys.executable, "login.py"])
                 self.destroy()
@@ -254,6 +254,12 @@ class RepaymentWindow(tk.Tk):
         }
         
         if database.save_payment(payment_data):
+            # LOG THE ACTIVITY
+            database.log_activity(
+                CURRENT_USER_NAME, 
+                "Payment Recorded", 
+                f"Recorded payment of RWF {amount:,.2f} for {self.loan_data.get('customer_name')}"
+            )
             database.db['loans'].update_one({"_id": self.loan_id}, {"$set": {"next_payment": next_payment_date}})
             messagebox.showinfo("Success", "Payment recorded successfully.")
             self.amount_entry.delete(0, tk.END)
@@ -268,6 +274,14 @@ class RepaymentWindow(tk.Tk):
             return
 
         values = self.payments_tree.item(selected)['values']
+        
+        # LOG THE ACTIVITY
+        database.log_activity(
+            CURRENT_USER_NAME, 
+            "Receipt Generated", 
+            f"Generated digital receipt for {self.loan_data.get('customer_name')} - Amount: RWF {values[1]}"
+        )
+        
         receipt_win = tk.Toplevel(self)
         receipt_win.title("Payment Receipt")
         receipt_win.geometry("400x550")
