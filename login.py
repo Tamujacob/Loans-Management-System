@@ -7,7 +7,7 @@ import bcrypt
 import os
 import sys
 
-# --- Main Login Logic ---
+#  Main Login Logic
 def handle_login(window, user_entry, pass_entry):
     """Handles the login button click, verifies role, and launches dashboard."""
     username = user_entry.get().strip()
@@ -35,7 +35,7 @@ def handle_login(window, user_entry, pass_entry):
                 user_role = user_doc.get('role', 'Staff')  # Default to Staff if missing
                 full_name = user_doc.get('full_name', username) # Use username if fullname missing
                 
-                # --- LOGGING THE ACTIVITY ---
+                # LOGGING THE ACTIVITY
                 # This records the successful login into the database logs collection
                 database.log_activity(full_name, "Login", "User successfully logged into the system")
                 
@@ -56,14 +56,14 @@ def handle_login(window, user_entry, pass_entry):
     except Exception as e:
         messagebox.showerror("Database Error", f"An error occurred: {e}")
 
-# --- GUI SETUP ---
+# GUI SETUP 
 window = Tk()
 window.title("Loan Management System - Secure Login")
 window.geometry("900x550")
 window.resizable(False, False)
 window.configure(bg="white")
 
-# --- SET WINDOW TITLE BAR ICON ---
+# SET WINDOW TITLE BAR ICON 
 try:
     title_icon = PhotoImage(file="bu logo.png")
     window.iconphoto(True, title_icon)
@@ -79,7 +79,7 @@ window.grid_columnconfigure(0, weight=1)
 window.grid_columnconfigure(1, weight=1) 
 window.grid_rowconfigure(0, weight=1)
 
-# --- LEFT SIDE: LOGO PANEL ---
+# LEFT SIDE: LOGO PANEL 
 left_panel = Frame(window, bg=PRIMARY_GREEN)
 left_panel.grid(row=0, column=0, sticky="nsew")
 
@@ -93,7 +93,7 @@ except Exception:
     Label(left_panel, text="BUSINESS\nLOGO", fg="white", 
           bg=PRIMARY_GREEN, font=("Segoe UI", 28, "bold")).place(relx=0.5, rely=0.5, anchor=CENTER)
 
-# --- RIGHT SIDE: LOGIN FORM ---
+#  RIGHT SIDE: LOGIN FORM 
 right_panel = Frame(window, bg="white")
 right_panel.grid(row=0, column=1, sticky="nsew")
 
@@ -128,5 +128,3 @@ window.bind('<Return>', lambda event: handle_login(window, user_entry, pass_entr
 
 if database.db is None:
     messagebox.showwarning("Database Warning", "MongoDB connection failed.")
-
-window.mainloop()
