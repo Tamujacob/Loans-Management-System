@@ -35,6 +35,10 @@ def handle_login(window, user_entry, pass_entry):
                 user_role = user_doc.get('role', 'Staff')  # Default to Staff if missing
                 full_name = user_doc.get('full_name', username) # Use username if fullname missing
                 
+                # --- LOGGING THE ACTIVITY ---
+                # This records the successful login into the database logs collection
+                database.log_activity(full_name, "Login", "User successfully logged into the system")
+                
                 messagebox.showinfo("Login Successful", f"Welcome back, {full_name}!")
                 
                 # 5. Launch Dashboard and PASS THE DATA
