@@ -46,7 +46,7 @@ class ReportsWindow(tk.Tk):
         self.config(bg="#f4f7f6")
 
         # APPLICATION ICON SETUP
-        # Attempts to load and display the company logo as the window icon.
+        # Display the company logo as the window icon.
         try:
             self.icon_img = Image.open("bu logo.png")
             self.icon_photo = ImageTk.PhotoImage(self.icon_img)
