@@ -4,6 +4,13 @@ import database
 import bcrypt 
 import sys
 
+# --- SESSION PERSISTENCE ---
+try:
+    # Capturing the admin who is creating the account
+    CURRENT_USER_NAME = sys.argv[2] if len(sys.argv) > 2 else "Administrator"
+except IndexError:
+    CURRENT_USER_NAME = "Administrator"
+
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
 DARK_GREEN = "#27ae60"
@@ -65,6 +72,13 @@ def create_account():
         result = database.db['users'].insert_one(user_data)
         
         if result.inserted_id:
+            # LOG THE ACTIVITY
+            database.log_activity(
+                CURRENT_USER_NAME, 
+                "Account Creation", 
+                f"Created new {role} account for {full_name} ({username})"
+            )
+            
             messagebox.showinfo("Success", f"User {full_name} registered successfully!")
             close_window()
             
@@ -93,7 +107,7 @@ header_frame.pack(fill="x", side="top")
 header_frame.pack_propagate(False)
 
 tk.Label(header_frame, text="CREATE NEW ACCOUNT", font=("Segoe UI", 16, "bold"), 
-         bg=PRIMARY_GREEN, fg=WHITE).pack(pady=25)
+          bg=PRIMARY_GREEN, fg=WHITE).pack(pady=25)
 
 # --- FORM CONTENT ---
 form_container = tk.Frame(card, bg=WHITE, padx=40, pady=20)
