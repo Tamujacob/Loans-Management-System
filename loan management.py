@@ -9,7 +9,7 @@ import bcrypt  # For secure password verification
 from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 
-# --- SESSION PERSISTENCE ---
+# SESSION PERSISTENCE 
 try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
@@ -22,18 +22,18 @@ try:
 except ImportError:
     relativedelta = None
 
-# --- IMPORT EXTERNAL WINDOWS ---
+# IMPORT EXTERNAL WINDOWS
 try:
     from view_loan_details import ViewLoanDetailsPage as LoanDetailsViewer 
 except ImportError:
     LoanDetailsViewer = None 
 
-# --- MAIN APPLICATION CLASS ---
+# MAIN APPLICATION CLASS 
 class LoanApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Loan Management System - User: {CURRENT_USER_NAME}")
-        self.geometry("1550x850") 
+        self.geometry("1550x700") 
         self.config(bg="#ecf0f1")
         
         try:
@@ -89,7 +89,7 @@ class LoanApp(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Error", f"Logout failed: {e}")
 
-# --- LOAN MANAGEMENT DASHBOARD ---
+# LOAN MANAGEMENT DASHBOARD 
 class DashboardFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -100,7 +100,7 @@ class DashboardFrame(tk.Frame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # --- SIDEBAR ---
+        # SIDEBAR 
         sidebar = tk.Frame(self, bg="#34495e", width=220, padx=15, pady=10)
         sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew") 
 
@@ -183,7 +183,7 @@ class DashboardFrame(tk.Frame):
         self.tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # --- ACTION BUTTONS ---
+        #  ACTION BUTTONS 
         action_frame = tk.Frame(self, bg="#ecf0f1", padx=20, pady=15)
         action_frame.grid(row=2, column=1, sticky="ew")
 
@@ -368,7 +368,7 @@ class DashboardFrame(tk.Frame):
         
         self.filter_loans(self.current_filter)
 
-    # --- UPDATED VIEW DETAILS LOGIC ---
+    # UPDATED VIEW DETAILS LOGIC
     def view_loan_details(self):
         loan_id = self.tree.focus()
         if not loan_id: return
@@ -380,7 +380,7 @@ class DashboardFrame(tk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to launch loan details: {e}")
 
-    # --- UPDATED RECORD REPAYMENT LOGIC ---
+    #  UPDATED RECORD REPAYMENT LOGIC 
     def record_repayment(self):
         loan_id = self.tree.focus()
         if not loan_id: return
