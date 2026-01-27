@@ -82,6 +82,8 @@ class LoanApp(tk.Tk):
     def logout_system(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
             try:
+                # Log the logout action
+                database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out of the system")
                 subprocess.Popen([sys.executable, "login.py"])
                 self.destroy()
             except Exception as e:
@@ -230,6 +232,8 @@ class DashboardFrame(tk.Frame):
                         confirm = messagebox.askyesno("Final Confirmation", f"Are you sure you want to PERMANENTLY delete the loan for {name}?")
                         if confirm:
                             database.db['loans'].delete_one({"_id": ObjectId(loan_id)})
+                            # LOG THE ACTIVITY
+                            database.log_activity(CURRENT_USER_NAME, "Permanent Delete", f"Wiped loan record for {name} (ID: {loan_id})")
                             messagebox.showinfo("Deleted", "Record wiped from database.")
                             self.filter_loans(self.current_filter)
                     else:
@@ -269,6 +273,10 @@ class DashboardFrame(tk.Frame):
                 "final_completion_date": final_due.strftime("%Y-%m-%d")
             }
         })
+        
+        # LOG THE ACTIVITY
+        database.log_activity(CURRENT_USER_NAME, "Approve Loan", f"Approved loan for {loan_data.get('customer_name')}")
+        
         messagebox.showinfo("Approved", f"Loan Approved!\nNext Pay: {next_due.strftime('%Y-%m-%d')}")
         self.filter_loans(self.current_filter)
 
@@ -342,12 +350,22 @@ class DashboardFrame(tk.Frame):
         loan_data = database.get_loan_by_id(loan_id)
         new_state = not loan_data.get("is_deleted", False)
         database.db['loans'].update_one({"_id": ObjectId(loan_id)}, {"$set": {"is_deleted": new_state}})
+        
+        # LOG THE ACTIVITY
+        action_name = "Move to Recycle" if new_state else "Restore Loan"
+        database.log_activity(CURRENT_USER_NAME, action_name, f"Changed deletion state for {loan_data.get('customer_name')}")
+        
         self.filter_loans(self.current_filter)
 
     def reject_loan(self):
         loan_id = self.tree.focus()
         if not loan_id: return
+        loan_data = database.get_loan_by_id(loan_id)
         database.update_loan_status(loan_id, "Rejected")
+        
+        # LOG THE ACTIVITY
+        database.log_activity(CURRENT_USER_NAME, "Reject Loan", f"Rejected loan application for {loan_data.get('customer_name')}")
+        
         self.filter_loans(self.current_filter)
 
     # --- UPDATED VIEW DETAILS LOGIC ---
@@ -401,6 +419,10 @@ class DashboardFrame(tk.Frame):
             data = list(database.db['loans'].find(query))
             for d in data: d['_id'] = str(d['_id'])
             pd.DataFrame(data).to_excel(file_path, index=False)
+            
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "Export Excel", f"Exported loan report to {os.path.basename(file_path)}")
+            
             self.export_win.destroy()
             os.startfile(file_path)
         except Exception as e:
