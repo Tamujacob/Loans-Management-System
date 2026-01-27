@@ -37,7 +37,7 @@ def initialize_collections():
     if db is not None:
         try:
             # 1. Check/Create Collections
-            for name in ['loans', 'users', 'payments']:
+            for name in ['loans', 'users', 'payments', 'logs']:
                 if name not in db.list_collection_names():
                     # This implicitly creates the collection and the mandatory unique _id index
                     db.create_collection(name)
@@ -49,6 +49,9 @@ def initialize_collections():
             db['loans'].create_index([("status", 1)])
             db['payments'].create_index([("loan_id", 1)])
             db['payments'].create_index([("payment_date", -1)])
+            
+            # Index for logs to ensure fast sorting in the Analytics/Reports window
+            db['logs'].create_index([("timestamp", -1)])
             
             print("All collections and required indexes initialized successfully.")
         except OperationFailure as e:
@@ -87,6 +90,28 @@ def connect_to_db():
         return False
         
 # --- Database Functions Required by GUI ---
+
+def log_activity(user, action, details):
+    """
+    Saves a user action to the 'logs' collection for auditing.
+    This can be called from anywhere in the project.
+    """
+    global db
+    if db is None: 
+        return False
+    
+    try:
+        log_entry = {
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "user": user,
+            "action": action,
+            "details": details
+        }
+        db['logs'].insert_one(log_entry)
+        return True
+    except Exception as e:
+        print(f"Failed to log activity: {e}")
+        return False
 
 def save_payment(payment_data):
     """Saves a new payment record using the 'payments' collection."""
