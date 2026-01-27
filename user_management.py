@@ -10,6 +10,7 @@ try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
 except IndexError:
+    # Defaulting to Admin for management purposes if not provided
     CURRENT_USER_ROLE = "Admin"
     CURRENT_USER_NAME = "Administrator"
 
@@ -24,6 +25,8 @@ def back_to_dashboard():
 def handle_logout():
     confirm = messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?")
     if confirm:
+        # LOG THE ACTIVITY
+        database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out from User Management")
         window.destroy()
         try:
             subprocess.Popen([sys.executable, "login.py"])
@@ -55,11 +58,16 @@ def delete_user():
     user_data = user_tree.item(selected_item)['values']
     user_id = user_data[0]
     full_name = user_data[1] 
+    username_to_del = user_data[3]
 
     confirm = messagebox.askyesno("Confirm Delete", f"Delete user: {full_name}?")
     if confirm:
         try:
             database.db['users'].delete_one({"_id": ObjectId(user_id)})
+            
+            # LOG THE ACTIVITY
+            database.log_activity(CURRENT_USER_NAME, "Delete User", f"Deleted account for {full_name} ({username_to_del})")
+            
             messagebox.showinfo("Success", "User deleted successfully.")
             refresh_table()
         except Exception as e:
@@ -78,6 +86,9 @@ def refresh_table():
         u_role = user.get('role', 'Staff')
         
         user_tree.insert("", "end", values=(u_id, u_full_name, u_email, u_name, u_role))
+    
+    # LOG THE ACTIVITY
+    database.log_activity(CURRENT_USER_NAME, "Refresh User List", "Admin refreshed the user database table")
 
 # --- THEME COLORS ---
 PRIMARY_GREEN = "#2ecc71"
@@ -90,7 +101,7 @@ HOVER_RED = "#e74c3c"
 
 window = Tk()
 window.title(f"User Management - Logged in as: {CURRENT_USER_NAME}")
-window.geometry("1250x800") # Increased height for footer visibility
+window.geometry("1250x800") 
 window.configure(bg=BG_LIGHT)
 
 # --- HEADER ---
@@ -145,15 +156,13 @@ user_tree.column("Role", width=120, anchor="center")
 
 user_tree.pack(fill="both", expand=True)
 
-# --- FOOTER SECTION (Enhanced Visibility) ---
+# --- FOOTER SECTION ---
 footer = Frame(window, bg=BG_LIGHT)
-footer.pack(side="bottom", fill="x", pady=(20, 40)) # More bottom padding
+footer.pack(side="bottom", fill="x", pady=(20, 40)) 
 
-# Container to center the buttons
 btn_container = Frame(footer, bg=BG_LIGHT)
 btn_container.pack()
 
-# Back Button Styling
 back_btn = Button(
     btn_container, 
     text="🔙 BACK TO DASHBOARD", 
@@ -170,7 +179,6 @@ back_btn = Button(
 )
 back_btn.pack(side="left", padx=20)
 
-# Logout Button Styling
 logout_btn = Button(
     btn_container, 
     text="🛑 LOGOUT SYSTEM", 
@@ -187,7 +195,6 @@ logout_btn = Button(
 )
 logout_btn.pack(side="left", padx=20)
 
-# Hover Effects
 def on_enter_logout(e): logout_btn['background'] = HOVER_RED
 def on_leave_logout(e): logout_btn['background'] = DANGER_RED
 logout_btn.bind("<Enter>", on_enter_logout)
