@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 import database 
 import bcrypt 
 import sys
+import os
 
 # SESSION PERSISTENCE
 try:
@@ -85,11 +86,20 @@ def create_account():
     except Exception as e:
         messagebox.showerror("Database Error", f"An error occurred: {e}")
 
-#  GUI Setup
+# GUI Setup
 window = tk.Tk()
 window.title("Register New System User")
 window.geometry("600x850") 
 window.configure(bg=BG_COLOR)
+
+# ICON UPDATE (Replacing the leaf) 
+try:
+    icon_path = "bu logo.png"
+    if os.path.exists(icon_path):
+        img = tk.PhotoImage(file=icon_path)
+        window.iconphoto(False, img)
+except Exception as e:
+    print(f"Icon could not be loaded: {e}")
 
 # Custom Style for Combobox
 style = ttk.Style()
@@ -97,7 +107,6 @@ style.theme_use('clam')
 style.configure("TCombobox", fieldbackground=WHITE, bordercolor=SOFT_GREY, padding=5)
 
 # MAIN CARD 
-
 card = tk.Frame(window, bg=WHITE, highlightthickness=1, highlightbackground=SOFT_GREY)
 card.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=480, height=750)
 
