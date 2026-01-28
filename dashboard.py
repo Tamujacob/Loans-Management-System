@@ -2,6 +2,8 @@ from tkinter import *
 import subprocess
 import sys
 from tkinter import messagebox
+import database  # Imported for activity logging
+import os
 
 # CATCH LOGIN ARGUMENTS
 try:
@@ -39,6 +41,12 @@ def open_reports():
 def handle_logout():
     confirm = messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?")
     if confirm:
+        # LOG THE ACTIVITY
+        try:
+            database.log_activity(CURRENT_USER_NAME, "Logout", "User logged out from Dashboard")
+        except Exception:
+            pass # Ensure logout proceeds even if logging fails
+            
         window.destroy()
         try:
             subprocess.Popen([sys.executable, "login.py"])
@@ -63,9 +71,17 @@ HOVER_RED = "#e74c3c"
 # MAIN WINDOW SETUP 
 window = Tk()
 window.title(f"Dashboard - {CURRENT_USER_NAME}")
-
 window.geometry("1100x850") 
 window.configure(bg=BG_LIGHT)
+
+# --- ICON UPDATE (Replacing the leaf) ---
+try:
+    icon_path = "bu logo.png"
+    if os.path.exists(icon_path):
+        img = PhotoImage(file=icon_path)
+        window.iconphoto(False, img)
+except Exception as e:
+    print(f"Icon could not be loaded: {e}")
 
 # HEADER SECTION 
 header = Frame(window, bg=PRIMARY_GREEN, height=140)
@@ -83,7 +99,6 @@ Label(status_frame, text=f"👤 User: {CURRENT_USER_NAME}  |  🔑 Role: {CURREN
       font=("Segoe UI", 10, "bold"), fg=WHITE, bg="#27ae60").pack(pady=5)
 
 #  MAIN CONTENT
-
 frame = Frame(window, bg=WHITE, relief="flat", padx=50, pady=30, 
               highlightthickness=1, highlightbackground="#dcdde1")
 frame.pack(pady=20)
@@ -102,7 +117,6 @@ current_row = 0
 modules = [
     ("New Loan Application", PRIMARY_GREEN, open_loan_application),
     ("Loan Management", DARK_TEXT, open_loan_management),
-    #("Loan Repayment", DARK_TEXT, None),
 ]
 
 for text, color, cmd in modules:
@@ -114,11 +128,10 @@ if CURRENT_USER_ROLE == "Admin":
            **btn_style, command=open_user_management).grid(row=current_row, column=0, pady=8)
     current_row += 1
 
-# Reports button now linked to open_reports
+# Reports button linked to open_reports
 Button(frame, text="Reports and Analytics", bg=DARK_TEXT, fg=WHITE, **btn_style, command=open_reports).grid(row=current_row, column=0, pady=8)
 
 # LOGOUT BUTTON 
-
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(fill="x", pady=(20, 40)) 
 
