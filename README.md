@@ -49,7 +49,7 @@ Loan-Management-System/
 ├── repayment.py          # Payment processing and balance calculation
 ├── view_loan_details.py  # Expanded view for individual loan files
 ├── bu logo.png           # Application branding and assets
-└── requirements.txt      # List of necessary Python libraries
+
 🚀 Getting Started
 Prerequisites
 Python 3.8 or higher
@@ -63,7 +63,7 @@ Clone the Repository
 
 Bash
 
-git clone https://github.com/yourusername/Loan-Management-System.git
+git clone https://github.com/Tamujaco/Loan-Management-System.git
 cd Loan-Management-System
 Installing dependencies
 
@@ -159,7 +159,7 @@ Preview and manage images.
 
 Submit to Database and generate a signable Word Document.
 
-Payment Processing: Select loan, enter payment amount, and update balance automatically.
+Payment Processing: Select loan, click on the record repayment button on loan management page which will take you to the repayement page, enter payment amount, and update balance automatically.
 
 🧪 Testing
 Run the test suite:
@@ -192,9 +192,7 @@ Commit changes (git commit -m 'Add AmazingFeature').
 Push to branch (git push origin feature/AmazingFeature).
 
 Open a Pull Request.
-
-📝 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+s.
 
 🙏 Acknowledgments
 Tkinter Documentation
@@ -208,6 +206,7 @@ For issues and questions:
 
 Check the Issues page.
 
-Email: your.email@example.com
+Email: jacobtamukedde@gmail.com
++256 787022284
 
 Note: This is a development project. Always backup your data before production use.
