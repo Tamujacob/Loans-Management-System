@@ -4,6 +4,7 @@ import subprocess
 import sys
 import database  
 from bson.objectid import ObjectId
+import os
 
 # --- 1. SESSION PERSISTENCE ---
 try:
@@ -103,6 +104,15 @@ window = Tk()
 window.title(f"User Management - Logged in as: {CURRENT_USER_NAME}")
 window.geometry("1250x800") 
 window.configure(bg=BG_LIGHT)
+
+# --- ICON UPDATE (Replacing the leaf) ---
+try:
+    icon_path = "bu logo.png"
+    if os.path.exists(icon_path):
+        img = PhotoImage(file=icon_path)
+        window.iconphoto(False, img)
+except Exception as e:
+    print(f"Icon could not be loaded: {e}")
 
 # --- HEADER ---
 header = Frame(window, bg=PRIMARY_GREEN, height=100)
