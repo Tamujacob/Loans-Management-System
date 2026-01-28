@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 from docx import Document 
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from PIL import Image, ImageTk  # Required for previews
 import database 
 import datetime
 import uuid
@@ -43,6 +44,8 @@ class LoanApplicationApp:
 
         self.repayment_method_var = tk.StringVar(value="Monthly")
         self.terms_var = tk.IntVar()
+        self.security_photos = [] # Store file paths
+        self.preview_images = [] # Keep reference to images to prevent garbage collection
         
         self.setup_ui()
 
@@ -87,6 +90,77 @@ class LoanApplicationApp:
         ent.grid(row=row, column=col, columnspan=colspan, sticky="ew", padx=15, pady=(0, 20), ipady=12)
         return ent
 
+    def attach_photos(self):
+        files = filedialog.askopenfilenames(
+            title="Select Security Photos",
+            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp")]
+        )
+        if files:
+            new_files = list(files)
+            if (len(self.security_photos) + len(new_files)) > 5:
+                messagebox.showwarning("Limit Exceeded", "You can only attach a maximum of 5 photos in total.")
+                self.security_photos.extend(new_files[:5 - len(self.security_photos)])
+            else:
+                self.security_photos.extend(new_files)
+            
+            self.update_photo_label()
+
+    def update_photo_label(self):
+        count = len(self.security_photos)
+        if count > 0:
+            self.photo_count_lbl.config(text=f"📎 {count} Photos Attached", fg=PRIMARY_GREEN)
+        else:
+            self.photo_count_lbl.config(text="No photos attached", fg="#7f8c8d")
+
+    def remove_photo(self, path, frame, win):
+        if path in self.security_photos:
+            self.security_photos.remove(path)
+            frame.destroy()
+            self.update_photo_label()
+            if not self.security_photos:
+                win.destroy()
+
+    def preview_photos(self):
+        if not self.security_photos:
+            messagebox.showinfo("Preview", "No photos attached to preview.")
+            return
+
+        preview_win = tk.Toplevel(self.root)
+        preview_win.title("Security Photo Previews")
+        preview_win.geometry("900x500")
+        preview_win.configure(bg=BG_LIGHT)
+
+        self.preview_images = [] # Clear old references
+        
+        container = tk.Frame(preview_win, bg=BG_LIGHT, padx=20, pady=20)
+        container.pack(fill="both", expand=True)
+
+        for path in self.security_photos:
+            try:
+                img = Image.open(path)
+                img.thumbnail((200, 180)) 
+                tk_img = ImageTk.PhotoImage(img)
+                self.preview_images.append(tk_img) 
+
+                photo_frame = tk.Frame(container, bg="white", bd=1, relief="solid", padx=5, pady=5)
+                photo_frame.pack(side="left", padx=10, pady=10, anchor="n")
+                
+                lbl = tk.Label(photo_frame, image=tk_img, bg="white")
+                lbl.pack()
+                
+                # Truncate long filenames
+                fname = os.path.basename(path)
+                short_name = (fname[:15] + '..') if len(fname) > 17 else fname
+                tk.Label(photo_frame, text=short_name, font=(FONT_FAMILY, 8), bg="white").pack(pady=2)
+
+                del_btn = tk.Button(photo_frame, text="❌ REMOVE", bg=DANGER_RED, fg="white", 
+                                    font=(FONT_FAMILY, 7, "bold"), bd=0, cursor="hand2",
+                                    command=lambda p=path, f=photo_frame: self.remove_photo(p, f, preview_win))
+                del_btn.pack(fill="x", pady=2)
+
+            except Exception as e:
+                tk.Label(container, text=f"Error: {os.path.basename(path)}", fg="red").pack()
+
     def build_form(self):
         self.create_label("NIN NUMBER (NATIONAL ID)", 0, 0)
         
@@ -120,9 +194,26 @@ class LoanApplicationApp:
         self.duration_combo.grid(row=5, column=0, sticky="ew", padx=15, pady=(0, 20))
         self.duration_combo.bind("<<ComboboxSelected>>", self.update_return_amount)
 
-        self.collateral_combo = ttk.Combobox(self.card, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Machinery and equipment", "Salary assignment"], 
+        collateral_frame = tk.Frame(self.card, bg="white")
+        collateral_frame.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
+        
+        self.collateral_combo = ttk.Combobox(collateral_frame, values=["Land Title", "Vehicle Logbook", "House Property", "Equipment", "Guarantor", "Machinery and equipment", "Salary assignment"], 
                                             font=(FONT_FAMILY, 13), state="readonly")
-        self.collateral_combo.grid(row=5, column=1, sticky="ew", padx=15, pady=(0, 20))
+        self.collateral_combo.pack(side="top", fill="x")
+        
+        photo_actions = tk.Frame(collateral_frame, bg="white")
+        photo_actions.pack(side="top", fill="x", pady=(5,0))
+
+        self.photo_btn = tk.Button(photo_actions, text="📸 ATTACH", bg="#95a5a6", fg="white",
+                                   font=(FONT_FAMILY, 9, "bold"), command=self.attach_photos, cursor="hand2", width=12)
+        self.photo_btn.pack(side="left", padx=(0, 5))
+
+        self.preview_btn = tk.Button(photo_actions, text="👁 PREVIEW", bg=PRIMARY_BLUE, fg="white",
+                                     font=(FONT_FAMILY, 9, "bold"), command=self.preview_photos, cursor="hand2", width=12)
+        self.preview_btn.pack(side="left")
+        
+        self.photo_count_lbl = tk.Label(collateral_frame, text="No photos attached", font=(FONT_FAMILY, 8), bg="white", fg="#7f8c8d")
+        self.photo_count_lbl.pack(side="top", anchor="w")
 
         self.create_label("PAYMENT FREQUENCY", 6, 0)
         radio_frame = tk.Frame(self.card, bg="white")
@@ -186,7 +277,6 @@ class LoanApplicationApp:
 
     def handle_logout(self):
         if messagebox.askyesno("Logout", "Are you sure you want to sign out?"):
-            # LOG THE ACTIVITY
             database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out from Application form")
             self.root.destroy()
             try:
@@ -241,6 +331,7 @@ class LoanApplicationApp:
                 "loan_type": self.type_combo.get(),
                 "duration": self.duration_combo.get(),
                 "collateral": self.collateral_combo.get(),
+                "security_photos": self.security_photos,
                 "payment_plan": self.repayment_method_var.get(),
                 "purpose": self.purpose_text.get("1.0", tk.END).strip(),
                 "return_amount": self.update_return_amount(),
@@ -248,15 +339,11 @@ class LoanApplicationApp:
                 "application_date": datetime.datetime.now()
             }
             database.db['loans'].insert_one(loan_data)
-            
-            # LOG THE ACTIVITY
             database.log_activity(CURRENT_USER_NAME, "New Loan Application", f"Submitted loan {loan_id} for {current_name}")
             
             messagebox.showinfo("Success", f"Application {loan_id} saved to Database!")
-            
             if messagebox.askyesno("Print", "Generate Word Doc for signing?"):
                 self.print_application(custom_id=loan_id)
-            
             self.return_to_dashboard()
         except Exception as e:
             messagebox.showerror("System Error", f"Failed to save: {e}")
@@ -318,6 +405,17 @@ class LoanApplicationApp:
             doc.add_heading('III. PURPOSE OF LOAN', level=2)
             doc.add_paragraph(self.purpose_text.get("1.0", tk.END).strip())
 
+            if self.security_photos:
+                doc.add_heading('IV. SECURITY ATTACHMENTS', level=2)
+                for photo_path in self.security_photos:
+                    if os.path.exists(photo_path):
+                        try:
+                            doc.add_picture(photo_path, width=Inches(3.5))
+                            p = doc.add_paragraph(f"Attachment: {os.path.basename(photo_path)}")
+                            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        except:
+                            doc.add_paragraph(f"[Error loading image: {os.path.basename(photo_path)}]")
+
             doc.add_paragraph("\n" * 2)
             sig_table = doc.add_table(rows=1, cols=2)
             sig_table.width = doc.sections[0].page_width
@@ -327,10 +425,7 @@ class LoanApplicationApp:
             right_cell.add_run("__________________________\nOFFICER APPROVAL / DATE")
 
             doc.save(file_path)
-            
-            # LOG THE ACTIVITY
             database.log_activity(CURRENT_USER_NAME, "Print Application", f"Generated Word document for {self.name_entry.get()}")
-            
             os.startfile(file_path)
         except Exception as e:
             messagebox.showerror("Print Error", f"Failed to generate document: {e}")
