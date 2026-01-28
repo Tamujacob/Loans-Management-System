@@ -4,9 +4,11 @@ import sys
 import subprocess
 from datetime import datetime
 from bson.objectid import ObjectId
+import os
 
 # --- Import Database Functions ---
-from database import get_loan_by_id, get_payments_by_loan, get_total_paid_for_loan, db
+# Added log_activity to tracking changes
+from database import get_loan_by_id, get_payments_by_loan, get_total_paid_for_loan, db, log_activity
 
 # --- SESSION PERSISTENCE ---
 try:
@@ -31,6 +33,15 @@ class ViewLoanDetailsPage:
         self.master.title(f"Loan Details - {loan_id}")
         self.master.geometry("1000x700")
         self.master.configure(bg="#f7f9fa")
+
+        # --- ICON UPDATE (Replacing the leaf) ---
+        try:
+            icon_path = "bu logo.png"
+            if os.path.exists(icon_path):
+                img = tk.PhotoImage(file=icon_path)
+                self.master.iconphoto(False, img)
+        except Exception as e:
+            print(f"Icon could not be loaded: {e}")
 
         self.frame = ttk.Frame(self.master, padding="20 20 20 5")
         self.frame.pack(fill='both', expand=True)
@@ -110,6 +121,7 @@ class ViewLoanDetailsPage:
 
     def _save_loan_updates(self):
         try:
+            customer_name = self.loan_data.get('customer_name', 'Unknown')
             updated_data = {
                 "loan_type": self.edit_entries['loan_type'].get(),
                 "loan_amount": float(self.edit_entries['loan_amount'].get()),
@@ -119,6 +131,13 @@ class ViewLoanDetailsPage:
             }
 
             db.loans.update_one({"_id": ObjectId(self.loan_id)}, {"$set": updated_data})
+            
+            # LOG THE ACTIVITY
+            log_activity(
+                CURRENT_USER_NAME, 
+                "Update Loan", 
+                f"Updated details for {customer_name}'s loan (ID: {self.loan_id})"
+            )
             
             self.loan_data.update(updated_data)
             self._refresh_calculations()
