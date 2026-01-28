@@ -10,7 +10,6 @@ from bson.objectid import ObjectId
 
 # SESSION PERSISTENCE 
 try:
-    # Check if opened via subprocess with arguments (LoanID, Role, Username)
     if len(sys.argv) > 3:
         LOAN_ID_FROM_ARGS = sys.argv[1]
         CURRENT_USER_ROLE = sys.argv[2]
@@ -28,7 +27,6 @@ class RepaymentWindow(tk.Tk):
     def __init__(self, loan_data=None):
         super().__init__()
         
-        # Resolve database connection and loan data
         if loan_data is None and LOAN_ID_FROM_ARGS:
             try:
                 self.loan_data = database.db['loans'].find_one({"_id": ObjectId(LOAN_ID_FROM_ARGS)})
@@ -44,10 +42,17 @@ class RepaymentWindow(tk.Tk):
 
         self.loan_id = self.loan_data['_id'] 
         
-        # Formatting UI
         self.title(f"Repayment Management - {self.loan_data.get('customer_name', 'Unknown')} (User: {CURRENT_USER_NAME})")
         self.geometry("1150x700") 
         self.config(bg="#f8f9fa") 
+
+        try:
+            self.icon_path = "bu logo.png"
+            if os.path.exists(self.icon_path):
+                img = tk.PhotoImage(file=self.icon_path)
+                self.iconphoto(False, img)
+        except Exception as e:
+            print(f"Icon could not be loaded: {e}")
         
         self.colors = {
             "primary": "#2c3e50",
@@ -59,7 +64,6 @@ class RepaymentWindow(tk.Tk):
         }
 
         self.setup_styles()
-        
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1) 
 
@@ -67,7 +71,6 @@ class RepaymentWindow(tk.Tk):
         self.create_payment_form()
         self.create_payment_view()
         self.create_action_buttons()
-
         self.load_payments()
 
     def setup_styles(self):
@@ -186,7 +189,6 @@ class RepaymentWindow(tk.Tk):
 
     def handle_logout(self):
         if messagebox.askyesno("Confirm Logout", "Are you sure you want to sign out?"):
-            # LOG THE ACTIVITY
             database.log_activity(CURRENT_USER_NAME, "Logout", "User signed out from Repayment screen")
             try:
                 subprocess.Popen([sys.executable, "login.py"])
@@ -230,6 +232,11 @@ class RepaymentWindow(tk.Tk):
             self.loan_data['status'] = new_status
 
     def record_payment(self):
+        # BLOCK PAYMENT IF FULLY PAID
+        if self.loan_data.get('status') == "Fully Paid":
+            messagebox.showwarning("Loan Completed", "This loan is already fully paid. No further payments can be recorded.")
+            return
+
         amount_str = self.amount_entry.get().strip()
         try:
             amount = float(amount_str)
@@ -254,7 +261,6 @@ class RepaymentWindow(tk.Tk):
         }
         
         if database.save_payment(payment_data):
-            # LOG THE ACTIVITY
             database.log_activity(
                 CURRENT_USER_NAME, 
                 "Payment Recorded", 
@@ -274,8 +280,6 @@ class RepaymentWindow(tk.Tk):
             return
 
         values = self.payments_tree.item(selected)['values']
-        
-        # LOG THE ACTIVITY
         database.log_activity(
             CURRENT_USER_NAME, 
             "Receipt Generated", 
@@ -284,39 +288,59 @@ class RepaymentWindow(tk.Tk):
         
         receipt_win = tk.Toplevel(self)
         receipt_win.title("Payment Receipt")
-        receipt_win.geometry("400x550")
+        receipt_win.geometry("450x720")
         receipt_win.config(bg="white")
+
+        if os.path.exists(self.icon_path):
+            try:
+                # Subsample (10, 10) for a smaller, cleaner logo
+                self.receipt_logo = tk.PhotoImage(file=self.icon_path).subsample(10, 10)
+                logo_label = tk.Label(receipt_win, image=self.receipt_logo, bg="white")
+                logo_label.pack(pady=(15, 0))
+            except:
+                pass
+
+        tk.Label(receipt_win, text="BIG ON GOLD LOANS", font=("Segoe UI", 16, "bold"), bg="white", fg=self.colors["primary"]).pack()
+        tk.Label(receipt_win, text="Official Payment Receipt", font=("Segoe UI", 10), bg="white", fg="#7f8c8d").pack(pady=(0, 10))
         
+        # Determine status message
+        is_finished = self.loan_data.get('status') == "Fully Paid"
+        status_msg = "LOAN FULLY CLEARED!" if is_finished else f"NEXT DUE DATE: {self.loan_data.get('next_payment', 'N/A')}"
+
         receipt_text = f"""
-        ===============================
-                OFFICIAL RECEIPT
-        ===============================
-        LOAN MANAGEMENT SYSTEM
-        Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
-        -------------------------------
-        CUSTOMER DETAILS:
-        Name: {self.loan_data.get('customer_name')}
-        
-        PAYMENT DETAILS:
-        Date Paid: {values[0]}
-        Amount: RWF {values[1]}
-        Method: {values[2]}
-        Received By: {values[3]}
-        
-        LOAN STATUS:
-        Total Paid: {self.total_paid_var.get()}
-        Balance: {self.remaining_var.get()}
-        -------------------------------
-        NEXT DUE DATE: {self.loan_data.get('next_payment', 'N/A')}
-        
-        Thank you!
-        ===============================
+===========================================
+        TRANSACTION DETAILS
+===========================================
+Date Issued: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+CUSTOMER DETAILS:
+Name:    {self.loan_data.get('customer_name')}
+Loan ID: {str(self.loan_id)[:12]}...
+
+PAYMENT DETAILS:
+Date Paid:      {values[0]}
+Amount Paid:    RWF {values[1]}
+Method:         {values[2]}
+Received By:    {values[3]}
+
+FINANCIAL STATUS:
+Total Paid:     {self.total_paid_var.get()}
+Remaining Bal:  {self.remaining_var.get()}
+-------------------------------------------
+{status_msg}
+
+Thank you for trusting Big On Gold Loans. 
+We value your partnership!
+===========================================
         """
-        text_widget = tk.Text(receipt_win, font=("Courier", 10), padx=20, pady=20, relief="flat")
+        text_widget = tk.Text(receipt_win, font=("Courier New", 10), padx=25, pady=10, relief="flat", bg="white")
         text_widget.insert(tk.END, receipt_text)
         text_widget.config(state=tk.DISABLED)
         text_widget.pack(expand=True, fill="both")
-        tk.Button(receipt_win, text="PRINT", bg=self.colors["primary"], fg="white", command=lambda: messagebox.showinfo("Printer", "Printing...")).pack(pady=10)
+        
+        tk.Button(receipt_win, text="PRINT RECEIPT", bg=self.colors["success"], fg="white", 
+                  font=("Segoe UI", 10, "bold"), relief="flat", padx=20, pady=8,
+                  command=lambda: messagebox.showinfo("Printer", "Sending to printer...")).pack(pady=20)
 
 if __name__ == "__main__":
     app = RepaymentWindow()
