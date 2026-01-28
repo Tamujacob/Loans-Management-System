@@ -4,14 +4,14 @@ import database
 import bcrypt 
 import sys
 
-# --- SESSION PERSISTENCE ---
+# SESSION PERSISTENCE
 try:
     # Capturing the admin who is creating the account
     CURRENT_USER_NAME = sys.argv[2] if len(sys.argv) > 2 else "Administrator"
 except IndexError:
     CURRENT_USER_NAME = "Administrator"
 
-# --- THEME COLORS ---
+# THEME COLORS
 PRIMARY_GREEN = "#2ecc71"
 DARK_GREEN = "#27ae60"
 BG_COLOR = "#f4f7f6"
@@ -85,7 +85,7 @@ def create_account():
     except Exception as e:
         messagebox.showerror("Database Error", f"An error occurred: {e}")
 
-# --- GUI Setup ---
+#  GUI Setup
 window = tk.Tk()
 window.title("Register New System User")
 window.geometry("600x850") 
@@ -96,12 +96,12 @@ style = ttk.Style()
 style.theme_use('clam')
 style.configure("TCombobox", fieldbackground=WHITE, bordercolor=SOFT_GREY, padding=5)
 
-# --- MAIN CARD ---
+# MAIN CARD 
 
 card = tk.Frame(window, bg=WHITE, highlightthickness=1, highlightbackground=SOFT_GREY)
 card.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=480, height=750)
 
-# --- CARD HEADER ---
+# CARD HEADER
 header_frame = tk.Frame(card, bg=PRIMARY_GREEN, height=80)
 header_frame.pack(fill="x", side="top")
 header_frame.pack_propagate(False)
@@ -109,7 +109,7 @@ header_frame.pack_propagate(False)
 tk.Label(header_frame, text="CREATE NEW ACCOUNT", font=("Segoe UI", 16, "bold"), 
           bg=PRIMARY_GREEN, fg=WHITE).pack(pady=25)
 
-# --- FORM CONTENT ---
+# FORM CONTENT
 form_container = tk.Frame(card, bg=WHITE, padx=40, pady=20)
 form_container.pack(fill="both", expand=True)
 
@@ -154,7 +154,7 @@ create_label("CONFIRM PASSWORD").pack(anchor="w", pady=(5, 2))
 confirm_entry = create_entry(show="*")
 confirm_entry.pack(fill="x", ipady=7, pady=(0, 25))
 
-# --- BUTTONS ---
+# BUTTONS
 register_btn = tk.Button(
     form_container, text="REGISTER USER", command=create_account,
     font=("Segoe UI", 12, "bold"), bg=PRIMARY_GREEN, fg=WHITE,
