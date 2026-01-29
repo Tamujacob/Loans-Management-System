@@ -36,7 +36,7 @@ env/
 # Tkinter/GUI files (often temporary logs or settings)
 # Add specific temporary database files here if applicable (e.g., SQLite files)
 *.db
-*.sqlite3
+*.database
 
 # Logs and databases
 *.log
