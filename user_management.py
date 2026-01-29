@@ -6,7 +6,7 @@ import database
 from bson.objectid import ObjectId
 import os
 
-# --- 1. SESSION PERSISTENCE ---
+# SESSION PERSISTENCE
 try:
     CURRENT_USER_ROLE = sys.argv[1]
     CURRENT_USER_NAME = sys.argv[2]
@@ -15,7 +15,7 @@ except IndexError:
     CURRENT_USER_ROLE = "Admin"
     CURRENT_USER_NAME = "Administrator"
 
-# --- NAVIGATION FUNCTIONS ---
+# --- NAVIGATION FUNCTIONS
 def back_to_dashboard():
     window.destroy()
     try:
@@ -40,7 +40,7 @@ def open_create_account():
     except Exception:
         messagebox.showerror("Error", "Could not find 'create account.py'.")
 
-# --- DATABASE LOGIC ---
+#  DATABASE LOGIC 
 def fetch_users():
     if database.db is None:
         return []
@@ -91,9 +91,9 @@ def refresh_table():
     # LOG THE ACTIVITY
     database.log_activity(CURRENT_USER_NAME, "Refresh User List", "Admin refreshed the user database table")
 
-# --- THEME COLORS ---
+# THEME COLORS
 PRIMARY_GREEN = "#2ecc71"
-PRIMARY_BLUE = "#2980b9"  # Deep blue for "Back"
+PRIMARY_BLUE = "#2980b9"  
 BG_LIGHT = "#f4f7f6"
 DARK_TEXT = "#2c3e50"
 WHITE = "#ffffff"
@@ -105,7 +105,7 @@ window.title(f"User Management - Logged in as: {CURRENT_USER_NAME}")
 window.geometry("1250x800") 
 window.configure(bg=BG_LIGHT)
 
-# --- ICON UPDATE (Replacing the leaf) ---
+#  ICON UPDATE
 try:
     icon_path = "bu logo.png"
     if os.path.exists(icon_path):
@@ -114,7 +114,7 @@ try:
 except Exception as e:
     print(f"Icon could not be loaded: {e}")
 
-# --- HEADER ---
+# HEADER
 header = Frame(window, bg=PRIMARY_GREEN, height=100)
 header.pack(fill="x", side="top")
 header.pack_propagate(False)
@@ -122,7 +122,7 @@ header.pack_propagate(False)
 Label(header, text="USER MANAGEMENT", font=("Segoe UI", 24, "bold"), 
       fg=WHITE, bg=PRIMARY_GREEN).pack(pady=(25, 0))
 
-# --- MAIN CONTENT ---
+# MAIN CONTENT 
 main_frame = Frame(window, bg=BG_LIGHT, padx=40, pady=20)
 main_frame.pack(fill="both", expand=True)
 
@@ -141,7 +141,7 @@ Button(actions_bar, text="🗑 Delete User", bg=DANGER_RED, fg=WHITE,
        font=("Segoe UI", 10, "bold"), bd=0, padx=20, pady=8, 
        cursor="hand2", command=delete_user).pack(side="right", padx=5)
 
-# --- TREEVIEW TABLE ---
+# TREEVIEW TABLE 
 tree_frame = Frame(main_frame, bg=WHITE)
 tree_frame.pack(fill="both", expand=True)
 
@@ -166,7 +166,7 @@ user_tree.column("Role", width=120, anchor="center")
 
 user_tree.pack(fill="both", expand=True)
 
-# --- FOOTER SECTION ---
+# FOOTER SECTION
 footer = Frame(window, bg=BG_LIGHT)
 footer.pack(side="bottom", fill="x", pady=(20, 40)) 
 

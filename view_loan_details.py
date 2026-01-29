@@ -6,11 +6,11 @@ from datetime import datetime
 from bson.objectid import ObjectId
 import os
 
-# --- Import Database Functions ---
+#  Import Database Functions 
 # Added log_activity to tracking changes
 from database import get_loan_by_id, get_payments_by_loan, get_total_paid_for_loan, db, log_activity
 
-# --- SESSION PERSISTENCE ---
+# SESSION PERSISTENCE
 try:
     LOAN_ID_ARG = sys.argv[1]
     CURRENT_USER_ROLE = sys.argv[2]
@@ -34,7 +34,7 @@ class ViewLoanDetailsPage:
         self.master.geometry("1000x700")
         self.master.configure(bg="#f7f9fa")
 
-        # --- ICON UPDATE (Replacing the leaf) ---
+        #  ICON UPDATE (Replacing the leaf) 
         try:
             icon_path = "bu logo.png"
             if os.path.exists(icon_path):
