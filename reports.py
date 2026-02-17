@@ -17,10 +17,7 @@ from reportlab.platypus import Table, TableStyle
 from PIL import Image, ImageTk
 import io
 
-# --- SESSION PERSISTENCE ---
-# This block handles passing user login information (Role and Name) between different 
-# script files using command-line arguments (sys.argv). This ensures that the 
-# application knows who is logged in even when opening new windows.
+# SESSION PERSISTENCE 
 try:
     if len(sys.argv) > 2:
         CURRENT_USER_ROLE = sys.argv[1]

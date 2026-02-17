@@ -7,7 +7,7 @@ import bcrypt
 import os
 import sys
 
-#  Main Login Logic
+# --- LOGIN LOGIC ---
 def handle_login(window, user_entry, pass_entry):
     """Handles the login button click, verifies role, and launches dashboard."""
     username = user_entry.get().strip()
@@ -18,7 +18,7 @@ def handle_login(window, user_entry, pass_entry):
         return
 
     if database.db is None:
-        messagebox.showerror("Connection Error", "Database not connected.")
+        messagebox.showerror("Connection Error", "Database not connected. Please check your MongoDB service.")
         return
 
     try:
@@ -32,19 +32,17 @@ def handle_login(window, user_entry, pass_entry):
             # 3. Verify password using bcrypt
             if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
                 # 4. Password Correct! Fetch Role and Name
-                user_role = user_doc.get('role', 'Staff')  # Default to Staff if missing
-                full_name = user_doc.get('full_name', username) # Use username if fullname missing
+                user_role = user_doc.get('role', 'Staff')
+                full_name = user_doc.get('full_name', username)
                 
                 # LOGGING THE ACTIVITY
-                # This records the successful login into the database logs collection
                 database.log_activity(full_name, "Login", "User successfully logged into the system")
                 
                 messagebox.showinfo("Login Successful", f"Welcome back, {full_name}!")
                 
-                # 5. Launch Dashboard and PASS THE DATA
+                # 5. Launch Dashboard
                 window.destroy()
                 try:
-                    # We pass the role and name as command line arguments
                     subprocess.Popen([sys.executable, "dashboard.py", user_role, full_name])
                 except Exception as e:
                     messagebox.showerror("Error", f"Could not launch dashboard: {e}")
@@ -56,12 +54,19 @@ def handle_login(window, user_entry, pass_entry):
     except Exception as e:
         messagebox.showerror("Database Error", f"An error occurred: {e}")
 
-# GUI SETUP 
+# --- GUI SETUP ---
 window = Tk()
 window.title("Loan Management System - Secure Login")
 window.geometry("900x550")
 window.resizable(False, False)
 window.configure(bg="white")
+
+# Center window on screen
+screen_width = window.winfo_screenwidth()
+screen_height = window.winfo_screenheight()
+x = (screen_width/2) - (900/2)
+y = (screen_height/2) - (550/2)
+window.geometry('%dx%d+%d+%d' % (900, 550, x, y))
 
 # SET WINDOW TITLE BAR ICON 
 try:
@@ -93,7 +98,7 @@ except Exception:
     Label(left_panel, text="BUSINESS\nLOGO", fg="white", 
           bg=PRIMARY_GREEN, font=("Segoe UI", 28, "bold")).place(relx=0.5, rely=0.5, anchor=CENTER)
 
-#  RIGHT SIDE: LOGIN FORM 
+# RIGHT SIDE: LOGIN FORM 
 right_panel = Frame(window, bg="white")
 right_panel.grid(row=0, column=1, sticky="nsew")
 
@@ -123,8 +128,16 @@ login_btn = Button(form_box, text="LOG IN", bg=PRIMARY_GREEN, fg="white",
                     cursor="hand2", command=lambda: handle_login(window, user_entry, pass_entry))
 login_btn.pack(pady=10)
 
-# Binding Enter Key
+# --- FINAL INITIALIZATION ---
+
+# Binding Enter Key for better UX
 window.bind('<Return>', lambda event: handle_login(window, user_entry, pass_entry))
 
+# Final check for DB connection before allowing interactions
 if database.db is None:
-    messagebox.showwarning("Database Warning", "MongoDB connection failed.")
+    messagebox.showwarning("Database Warning", "MongoDB connection failed. Ensure your database is running.")
+
+
+
+# Start the application loop
+window.mainloop()
