@@ -1,4 +1,4 @@
-💰 Loan Management System
+💰My Loan Management System
 A robust desktop application built using Python and Tkinter for efficiently managing, tracking, and calculating interest on loan records with MongoDB integration.
 
 ✨ Features
